@@ -1,0 +1,175 @@
+// ------------------------------------------------------------------
+// MoneyPilot database schema — Phase 1 (identity, sessions, audit)
+//
+// DEVELOPMENT: provider is "sqlite" for zero-install local development.
+// PRODUCTION:  switch `provider` to "postgresql" and point DATABASE_URL at
+//              PostgreSQL. The schema deliberately avoids provider-specific
+//              features so the switch is a one-line change; run
+//              `prisma migrate deploy` to apply migrations on the new DB.
+//
+// Design rules applied across the codebase:
+//  * Monetary values are INTEGER minor units (cents) plus a currency code.
+//    Float/Decimal is never used for money.
+//  * All timestamps are stored in UTC and converted to the user's timezone
+//    for display.
+//  * Ownership and authorization are enforced at the application layer and
+//    constrained with unique indexes on user-scoped data.
+//  * Destructive financial changes are handled via soft deletes + audit
+//    logs in later phases.
+// ------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// A registered account. `status` is app-level (ACTIVE | DISABLED) instead of
+/// a DB enum so the schema stays portable between SQLite and PostgreSQL.
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  name              String
+  passwordHash      String
+  role              String   @default("USER") // USER | ADMIN
+  status            String   @default("ACTIVE") // ACTIVE | DISABLED
+  emailVerifiedAt   DateTime?
+  preferredCurrency String   @default("KES")
+  timezone          String   @default("Africa/Nairobi")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
+
+  profile              UserProfile?
+  devices              Device[]
+  sessions             Session[]
+  verificationTokens   VerificationToken[]
+  auditLogs            AuditLog[]
+  createdInvitations   Invitation[]
+
+  @@map("users")
+}
+
+/// Extended profile / preferences for a user.
+model UserProfile {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  financialMonthStartDay Int      @default(1)
+  onboardingCompletedAt DateTime?
+  settingsJson          String    @default("{}") // opaque user-preference JSON, validated by app
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_profiles")
+}
+
+/// A recognized client device (web browser, iOS, Android).
+/// `clientKey` is an opaque client-generated identifier that makes device
+/// registration idempotent across logins from the same browser/device.
+model Device {
+  id         String   @id @default(cuid())
+  userId     String
+  clientKey  String?
+  name       String
+  platform   String   @default("UNKNOWN") // WEB | IOS | ANDROID | UNKNOWN
+  userAgent  String?
+  ip         String?
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  revokedAt  DateTime?
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions Session[]
+
+  @@unique([userId, clientKey])
+  @@index([userId])
+  @@map("devices")
+}
+
+/// An authenticated session. `tokenHash` stores a SHA-256 digest of the
+/// opaque refresh token; the plain token is only ever presented by the client
+/// and never persisted. Rotation revokes `revokedAt` and chains to a new row.
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  deviceId  String
+  tokenHash String   @unique
+  remember  Boolean  @default(false) // lifetime class: long-lived vs short-lived
+  expiresAt DateTime
+  lastUsedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+  replacedById String? @unique // chain link for rotated refresh tokens
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([deviceId])
+  @@map("sessions")
+}
+
+/// Email-verification and password-reset tokens. Plain token is handed to the
+/// user by email; only its SHA-256 digest is stored here.
+model VerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String // EMAIL_VERIFY | PASSWORD_RESET
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+  @@map("verification_tokens")
+}
+
+/// Invitation to register, used when PRIVATE_MODE=true (invite-only signup).
+/// The plain token is handed to the invited person; only its SHA-256 digest is
+/// stored. An invitation is single-use and expires.
+model Invitation {
+  id               String    @id @default(cuid())
+  tokenHash        String    @unique
+  email            String?
+  role             String    @default("USER") // role granted on signup: USER | ADMIN
+  status           String    @default("PENDING") // PENDING | USED | REVOKED
+  expiresAt        DateTime
+  usedAt           DateTime?
+  registeredUserId String?
+  createdById      String?
+  createdAt        DateTime  @default(now())
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([createdById])
+  @@map("invitations")
+}
+
+/// Append-only audit trail. `metadata` is a JSON-encoded string so it stays
+/// portable across SQLite and PostgreSQL.
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String // e.g. AUTH_LOGIN, AUTH_REGISTER, AUTH_LOGOUT_ALL
+  entityType String?
+  entityId   String?
+  metadata   String?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
