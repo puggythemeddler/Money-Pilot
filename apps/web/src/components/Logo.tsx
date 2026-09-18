@@ -82,4 +82,34 @@ export const Icons = {
       <path d="M12 16.8v.2" />
     </svg>
   ),
+  wallet: (props: SVGProps<SVGSVGElement>) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path d="M3.5 6.5A2.5 2.5 0 0 1 6 4h12.5v2" />
+      <path d="M3.5 6.5A2.5 2.5 0 0 0 6 9h14.5V5a1.5 1.5 0 0 0-1.5-1.5" />
+      <path d="M3.5 6.5 4 19a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 19v-2" />
+      <circle cx="16.4" cy="14.5" r="1.3" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  receipt: (props: SVGProps<SVGSVGElement>) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path d="M6 3.5h12a1 1 0 0 1 1 1v16l-2.5-1.7L14 20.5l-2-1.8-2 1.8-2.5-1.7L5 20.5v-16a1 1 0 0 1 1-1Z" />
+      <path d="M8.5 8.5h7" />
+      <path d="M8.5 12h7" />
+      <path d="M9 15.5h4" />
+    </svg>
+  ),
+  swap: (props: SVGProps<SVGSVGElement>) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path d="M8 4 4 8l4 4" />
+      <path d="M4 8h11a5 5 0 0 1 5 5v0" />
+      <path d="m16 20 4-4-4-4" />
+      <path d="M20 16H9a5 5 0 0 1-5-5v0" />
+    </svg>
+  ),
+  tag: (props: SVGProps<SVGSVGElement>) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path d="M4 4h7.2a2 2 0 0 1 1.4.6l7.3 7.3a2 2 0 0 1 0 2.8l-4.2 4.2a2 2 0 0 1-2.8 0l-7.3-7.3a2 2 0 0 1-.6-1.4V4Z" />
+      <circle cx="9" cy="9" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  ),
 };

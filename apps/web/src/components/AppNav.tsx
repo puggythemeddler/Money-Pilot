@@ -5,20 +5,14 @@ import type { AuthUser } from "@/lib/auth";
 
 const realNav = [
   { href: "/dashboard", label: "Overview", icon: Icons.dashboard },
+  { href: "/dashboard/accounts", label: "Accounts", icon: Icons.wallet },
+  { href: "/dashboard/transactions", label: "Transactions", icon: Icons.receipt },
+  { href: "/dashboard/transfers", label: "Transfers", icon: Icons.swap },
+  { href: "/dashboard/categories", label: "Categories", icon: Icons.tag },
   { href: "/dashboard/settings", label: "Settings", icon: Icons.settings },
 ];
 
-const comingSoon = [
-  "Transactions",
-  "Accounts",
-  "Transfers",
-  "Debts",
-  "Bills",
-  "Budgets",
-  "Calendar",
-  "Reports",
-  "Imports",
-];
+const comingSoon = ["Debts", "Bills", "Budgets", "Calendar", "Reports", "Imports"];
 
 function MobileNotice({ children }: { children: React.ReactNode }) {
   return (
@@ -53,7 +47,7 @@ export function Sidebar({ user }: { user: AuthUser }) {
 
         <div>
           <p className="px-3 pb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Coming in Phase 2
+            Coming later
           </p>
           <div className="space-y-1">
             {comingSoon.map((label) => (
