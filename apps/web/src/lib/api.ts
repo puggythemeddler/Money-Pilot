@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { ZodError, type ZodType } from "zod";
+import { z, ZodError, type ZodTypeAny } from "zod";
 import { AppError, ErrorCodes, isAppError, type ApiErrorBody } from "@moneypilot/shared";
 import { Prisma } from "@prisma/client";
 
@@ -23,7 +23,7 @@ export async function parseJson(req: Request): Promise<unknown> {
 }
 
 /** Parses raw JSON through a Zod schema, converting failures into AppErrors. */
-export function validate<T>(schema: ZodType<T>, raw: unknown): T {
+export function validate<S extends ZodTypeAny>(schema: S, raw: unknown): z.infer<S> {
   const result = schema.safeParse(raw);
   if (!result.success) {
     throw new AppError(ErrorCodes.VALIDATION, "Invalid input.", 400, {

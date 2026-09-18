@@ -70,8 +70,14 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
+/**
+ * Refresh request body. In token-mode (mobile clients sending
+ * `X-Use-Token-Auth: true`) the refreshToken is required and returned in the
+ * JSON body. In cookie-mode (browsers) the token travels in an httpOnly cookie
+ * and the body can be empty.
+ */
 export const refreshSchema = z.object({
-  refreshToken: z.string().min(1).max(512),
+  refreshToken: z.string().min(1).max(512).optional(),
 });
 
 export type RefreshInput = z.infer<typeof refreshSchema>;

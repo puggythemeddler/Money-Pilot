@@ -24,6 +24,90 @@ export function toMinorUnits(amount: number, currencyCode: string = "KES"): numb
   return Math.round((amount + Number.EPSILON) * factor);
 }
 
+/**
+ * Parses a user-supplied decimal amount (number or string) into integer minor
+ * units without going through floating-point arithmetic. The string form is
+ * parsed exactly (integer + fraction digits with optional exponent) using
+ * BigInt, so inputs like "0.07" never produce 7.0000000001. The only place a
+ * float can appear is when a JS `number` is passed in: it is stringified
+ * canonically first (`String(n)`) and the decimal literal is then rounded
+ * deterministically to the currency's minor unit.
+ *
+ * @throws RangeError for non-finite, malformed, negative, or overflowing values.
+ */
+export function parseMoneyToMinorUnits(input: string | number, currencyCode: string | undefined): number {
+  const digits = requireCurrency(currencyCode ?? "KES").minorUnitDigits;
+  let sign = 1n;
+  let body: string;
+
+  if (typeof input === "number") {
+    if (!Number.isFinite(input)) throw new RangeError("Amount must be a finite number.");
+    body = String(input);
+  } else {
+    body = input.trim();
+    if (body.length === 0) throw new RangeError("Amount must not be empty.");
+  }
+
+  if (body.startsWith("-")) {
+    sign = -1n;
+    body = body.slice(1);
+  } else if (body.startsWith("+")) {
+    body = body.slice(1);
+  }
+
+  // Normalize scientific notation: "1e3", "4.555e-2", "0.7e+2" ...
+  let exponent = 0;
+  const expMatch = /^([0-9]+(?:\.[0-9]+)?|\.[0-9]+)[eE]([+-]?[0-9]+)$/.exec(body);
+  if (expMatch) {
+    body = expMatch[1]!;
+    exponent = Number.parseInt(expMatch[2]!, 10);
+    if (!Number.isFinite(exponent) || Math.abs(exponent) > 10_000) {
+      throw new RangeError("Amount exponent is out of range.");
+    }
+  }
+
+  const parts = /^([0-9]*)(?:\.([0-9]+))?$/.exec(body);
+  if (!parts) throw new RangeError("Amount format is invalid.");
+  const intStr = parts[1] === "" ? "0" : parts[1];
+  const fracStr = parts[2] ?? "";
+
+  // value = D * 10^(exponent - fracLen) where D = intStr + fracStr.
+  // minor = round(value * 10^digits) = round(D * 10^(exponent - fracLen + digits)).
+  const totalExp = exponent - fracStr.length + digits;
+  const d = intStr + fracStr;
+
+  let minorDigits: string;
+  let roundUp = false;
+
+  if (totalExp >= 0) {
+    minorDigits = d + "0".repeat(totalExp);
+  } else {
+    const cut = -totalExp; // decimal digits to drop
+    if (cut >= d.length) {
+      // The whole amount is a fractional minor unit: round to 0 or 1.
+      const allNine = [...d].every((c) => c === "9");
+      roundUp = allNine || Number(d[0] ?? "0") >= 5;
+      minorDigits = roundUp ? "1" : "0";
+    } else {
+      const keep = d.slice(0, d.length - cut);
+      const dropped = d.slice(d.length - cut);
+      const first = Number(dropped[0] ?? "0");
+      const allNine = [...dropped].every((c) => c === "9");
+      // Half-up rounding on the exact decimal fraction (matches Math.round
+      // semantics for a clean decimal; e.g. 1.005 -> 101 minor).
+      roundUp = first >= 5 || allNine;
+      minorDigits = keep;
+    }
+  }
+
+  let result = sign * BigInt(minorDigits || "0");
+  if (roundUp) result += sign;
+  if (result > BigInt(MAX_SAFE_MINOR_UNITS) || result < -BigInt(MAX_SAFE_MINOR_UNITS)) {
+    throw new RangeError("Amount exceeded the safe integer range.");
+  }
+  return Number(result);
+}
+
 /** Converts minor units to a decimal amount for display (e.g. 1234 -> 12.34). */
 export function fromMinorUnits(amountMinor: number, currencyCode: string = "KES"): number {
   if (!Number.isInteger(amountMinor)) {

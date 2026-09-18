@@ -4,6 +4,7 @@ import { getCurrency, isSupportedCurrency, requireCurrency } from "../src/curren
 import {
   formatMoney,
   fromMinorUnits,
+  parseMoneyToMinorUnits,
   sumMinorUnits,
   toMinorUnits,
 } from "../src/money";
@@ -97,5 +98,60 @@ describe("currency registry", () => {
     expect(isSupportedCurrency("KES")).toBe(true);
     expect(isSupportedCurrency("ZAR")).toBe(false);
     expect(requireCurrency("ZAR").code).toBe("KES");
+  });
+});
+
+describe("parseMoneyToMinorUnits", () => {
+  it("parses decimal strings exactly with no float drift", () => {
+    expect(parseMoneyToMinorUnits("0.07", "KES")).toBe(7);
+    expect(parseMoneyToMinorUnits("100.50", "KES")).toBe(10050);
+    expect(parseMoneyToMinorUnits("12.34", "KES")).toBe(1234);
+    expect(parseMoneyToMinorUnits(".5", "KES")).toBe(50);
+    expect(parseMoneyToMinorUnits("100", "KES")).toBe(10000);
+    expect(parseMoneyToMinorUnits("0", "KES")).toBe(0);
+  });
+
+  it("rounds half and sub-minor-unit tails against the currency digits", () => {
+    expect(parseMoneyToMinorUnits("1.005", "KES")).toBe(101);
+    expect(parseMoneyToMinorUnits("1.0049", "KES")).toBe(100);
+    expect(parseMoneyToMinorUnits("1234.5", "UGX")).toBe(1235);
+    expect(parseMoneyToMinorUnits("1234.4", "UGX")).toBe(1234);
+  });
+
+  it("handles rounding that carries into the integer part", () => {
+    expect(parseMoneyToMinorUnits("0.9999", "KES")).toBe(100);
+    expect(parseMoneyToMinorUnits("999.999", "KES")).toBe(100000);
+  });
+
+  it("handles trailing-nines carry plus carry chain", () => {
+    expect(parseMoneyToMinorUnits("0.09999999999999999999", "KES")).toBe(10);
+  });
+
+  it("accepts JS numbers by canonical stringification", () => {
+    expect(parseMoneyToMinorUnits(0.1 + 0.2, "KES")).toBe(30);
+    expect(parseMoneyToMinorUnits(12.34, "KES")).toBe(1234);
+  });
+
+  it("supports scientific notation", () => {
+    expect(parseMoneyToMinorUnits("1e3", "KES")).toBe(100000);
+    expect(parseMoneyToMinorUnits("1e-2", "KES")).toBe(1);
+    expect(parseMoneyToMinorUnits("4.555e2", "KES")).toBe(45550);
+  });
+
+  it("supports signed amounts", () => {
+    expect(parseMoneyToMinorUnits("-100.50", "KES")).toBe(-10050);
+    expect(parseMoneyToMinorUnits("+5", "KES")).toBe(500);
+  });
+
+  it("rejects malformed or empty input", () => {
+    expect(() => parseMoneyToMinorUnits("", "KES")).toThrow(RangeError);
+    expect(() => parseMoneyToMinorUnits("abc", "KES")).toThrow(RangeError);
+    expect(() => parseMoneyToMinorUnits("1.2.3", "KES")).toThrow(RangeError);
+    expect(() => parseMoneyToMinorUnits(Number.NaN, "KES")).toThrow(RangeError);
+    expect(() => parseMoneyToMinorUnits(Infinity, "KES")).toThrow(RangeError);
+  });
+
+  it("rejects amounts beyond the safe integer range", () => {
+    expect(() => parseMoneyToMinorUnits("99999999999999999999999", "KES")).toThrow(RangeError);
   });
 });
