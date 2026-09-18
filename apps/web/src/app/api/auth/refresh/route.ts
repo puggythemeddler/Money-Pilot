@@ -3,15 +3,27 @@ import { AppError, ErrorCodes, refreshSchema } from "@moneypilot/shared";
 import { prisma } from "@/lib/db";
 import { findSessionByToken, rotateSession } from "@/lib/sessions";
 import { signAccessToken } from "@/lib/jwt";
-import { fail, newRequestId, parseJson, validate } from "@/lib/api";
-import { authJsonResponse, clearAuthCookies } from "@/lib/cookies";
+import { fail, newRequestId, validate } from "@/lib/api";
+import { authJsonResponse, clearAuthCookies, isTokenMode } from "@/lib/cookies";
 import { readRefreshCookie, type AuthUser } from "@/lib/auth";
+
+/** Reads the JSON body, tolerating an empty body in cookie-mode refreshes. */
+async function readBodyOrEmpty(req: NextRequest): Promise<unknown> {
+  const text = await req.text();
+  if (text.trim().length === 0) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new AppError(ErrorCodes.VALIDATION, "Request body must be valid JSON.", 400);
+  }
+}
 
 export async function POST(req: NextRequest) {
   const requestId = newRequestId();
+  const tokenMode = isTokenMode(req);
   let shouldClearCookies = false;
   try {
-    const raw = await parseJson(req);
+    const raw = await readBodyOrEmpty(req);
     const input = validate(refreshSchema, raw);
     const cookieToken = await readRefreshCookie();
     const refreshToken = input.refreshToken || cookieToken;
@@ -21,6 +33,9 @@ export async function POST(req: NextRequest) {
 
     const session = await findSessionByToken(refreshToken);
     if (!session) {
+      // Invalid, expired, or already-rotated token. If it was rotated, the
+      // reuse is handled (and the lineage revoked) inside rotateSession.
+      await rotateSession(refreshToken);
       shouldClearCookies = true;
       throw new AppError(ErrorCodes.INVALID_TOKEN, "Your session has expired. Please sign in again.", 401);
     }
@@ -49,9 +64,9 @@ export async function POST(req: NextRequest) {
       preferredCurrency: user.preferredCurrency,
       timezone: user.timezone,
     };
-    return authJsonResponse(me, accessToken, next.refreshToken, session.remember);
+    return authJsonResponse(me, accessToken, next.refreshToken, session.remember, { tokenMode });
   } catch (err) {
-    if (shouldClearCookies) {
+    if (shouldClearCookies && !tokenMode) {
       return clearAuthCookies(fail(err, requestId));
     }
     return fail(err, requestId);

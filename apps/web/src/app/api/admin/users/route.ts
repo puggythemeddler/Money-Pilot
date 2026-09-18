@@ -2,12 +2,10 @@ import { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { fail, newRequestId, ok } from "@/lib/api";
-import { ensureBootstrapAdmin } from "@/lib/bootstrap";
 
 export async function GET(req: NextRequest) {
   const requestId = newRequestId();
   try {
-    await ensureBootstrapAdmin();
     const context = await requireAdmin({ headers: req.headers });
     const url = new URL(req.url);
     const limit = Math.min(Number(url.searchParams.get("limit") ?? "50") || 50, 200);

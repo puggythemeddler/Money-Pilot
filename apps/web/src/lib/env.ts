@@ -47,6 +47,7 @@ export const env = {
  * the app boots with zero configuration. Production refuses to run without it.
  */
 export function getJwtSecret(): string {
+  assertProdConfig();
   const secret = process.env.AUTH_JWT_SECRET;
   if (secret && secret.length >= 32) return secret;
   if (!isProd) {
@@ -55,5 +56,32 @@ export function getJwtSecret(): string {
   throw new Error(
     "AUTH_JWT_SECRET is required in production (at least 32 characters). " +
       "Generate one with: node -e \"console.log(require('crypto').randomBytes(48).toString('base64url'))\"",
+  );
+}
+
+/**
+ * Fails fast on misconfigured production deployments. The configured base URL
+ * must be HTTPS so the `__Host-` auth cookies are accepted by browsers;
+ * loopback development/staging instances (`next start` locally) may use
+ * plain http because browsers treat localhost as a secure context.
+ */
+export function assertProdConfig(): void {
+  if (!isProd) return;
+  const base = process.env.APP_BASE_URL?.trim() ?? "";
+  if (!base) {
+    throw new Error("APP_BASE_URL is required in production.");
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(base);
+  } catch {
+    throw new Error(`APP_BASE_URL must be a valid URL (got: "${base}").`);
+  }
+  if (parsed.protocol === "https:") return;
+  const loopback =
+    parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1" || parsed.hostname === "[::1]" || parsed.hostname === "::1";
+  if (parsed.protocol === "http:" && loopback) return;
+  throw new Error(
+    `APP_BASE_URL must be an https:// URL in production so __Host- cookies are accepted by browsers (got: "${base}").`,
   );
 }

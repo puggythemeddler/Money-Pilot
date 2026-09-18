@@ -1,9 +1,13 @@
 import { env } from "./env";
 
-/** Names of the auth cookies set on the web origin. */
+/**
+ * Names of the auth cookies set on the web origin. The `__Host-` prefix
+ * restricts the cookies to Secure, Path=/ and no Domain attribute, which
+ * prevents subdomain and http cookie injection.
+ */
 export const COOKIES = {
-  access: "mp_access",
-  refresh: "mp_refresh",
+  access: "__Host-mp_access",
+  refresh: "__Host-mp_refresh",
 } as const;
 
 /** Access-token lifetime. Access tokens are short-lived; they are refreshed
@@ -41,6 +45,17 @@ export const AUDIT_ACTIONS = {
   INVITE_USED: "AUTH_INVITE_USED",
   DATA_EXPORTED: "PRIVACY_DATA_EXPORTED",
   ACCOUNT_DELETED: "PRIVACY_ACCOUNT_DELETED",
+  ACCOUNT_CREATED: "FINANCE_ACCOUNT_CREATED",
+  ACCOUNT_UPDATED: "FINANCE_ACCOUNT_UPDATED",
+  ACCOUNT_ARCHIVED: "FINANCE_ACCOUNT_ARCHIVED",
+  CATEGORY_CREATED: "FINANCE_CATEGORY_CREATED",
+  CATEGORY_UPDATED: "FINANCE_CATEGORY_UPDATED",
+  CATEGORY_ARCHIVED: "FINANCE_CATEGORY_ARCHIVED",
+  TRANSACTION_CREATED: "FINANCE_TRANSACTION_CREATED",
+  TRANSACTION_UPDATED: "FINANCE_TRANSACTION_UPDATED",
+  TRANSACTION_DELETED: "FINANCE_TRANSACTION_DELETED",
+  TRANSFER_CREATED: "FINANCE_TRANSFER_CREATED",
+  TRANSFER_DELETED: "FINANCE_TRANSFER_DELETED",
 } as const;
 
 export const USER_STATUS = {

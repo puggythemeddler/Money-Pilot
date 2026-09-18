@@ -9,21 +9,15 @@ import { signAccessToken } from "@/lib/jwt";
 import { writeAudit } from "@/lib/audit";
 import { fail, getClientIp, newRequestId, parseJson, validate } from "@/lib/api";
 import { authRateLimit } from "@/lib/rateLimit";
-import { authJsonResponse } from "@/lib/cookies";
-import { ensureBootstrapAdmin } from "@/lib/bootstrap";
+import { authJsonResponse, isTokenMode } from "@/lib/cookies";
 import type { AuthUser } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   const requestId = newRequestId();
+  const tokenMode = isTokenMode(req);
   try {
     const ip = getClientIp(req);
     authRateLimit(`login:${ip}`);
-
-    // Private deployments have no way to create the first admin through the
-    // UI, so a seeding attempt on login makes the described bootstrap admin
-    // available to sign in for the first time (idempotent, never resets).
-    await ensureBootstrapAdmin();
-
     const raw = await parseJson(req);
     const input = validate(loginSchema, raw);
     const ua = req.headers.get("user-agent") ?? undefined;
@@ -62,7 +56,9 @@ export async function POST(req: NextRequest) {
       preferredCurrency: user.preferredCurrency,
       timezone: user.timezone,
     };
-    return authJsonResponse(me, accessToken, session.refreshToken, input.remember ?? false);
+    return authJsonResponse(me, accessToken, session.refreshToken, input.remember ?? false, {
+      tokenMode,
+    });
   } catch (err) {
     return fail(err, requestId);
   }

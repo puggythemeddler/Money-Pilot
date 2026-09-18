@@ -34,8 +34,11 @@ async function readAccessToken(request?: { headers?: Headers }): Promise<string 
 
 /**
  * Resolves the authenticated user from a bearer token or the access-token
- * cookie. Returns null when unauthenticated. Users that are deleted or
- * disabled are treated as unauthenticated.
+ * cookie. Returns null when unauthenticated. Every authenticated request
+ * cross-checks the session and device rows so session/device revocation
+ * (logout, logout-all, device revocation, account disable/delete) takes effect
+ * immediately, not only when the access token expires. The access token is a
+ * signed *handle* to a server-side session; it is never trusted on its own.
  */
 export async function getAuthContext(request?: { headers?: Headers }): Promise<AuthContext | null> {
   const token = await readAccessToken(request);
@@ -44,20 +47,42 @@ export async function getAuthContext(request?: { headers?: Headers }): Promise<A
   const claims = await verifyAccessToken(token);
   if (!claims) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { id: claims.sub },
+  const session = await prisma.session.findUnique({
+    where: { id: claims.sid },
     select: {
       id: true,
-      email: true,
-      name: true,
-      role: true,
-      emailVerifiedAt: true,
-      preferredCurrency: true,
-      timezone: true,
-      status: true,
-      deletedAt: true,
+      userId: true,
+      deviceId: true,
+      revokedAt: true,
+      expiresAt: true,
+      device: { select: { revokedAt: true, userId: true } },
+      user: {
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          emailVerifiedAt: true,
+          preferredCurrency: true,
+          timezone: true,
+          status: true,
+          deletedAt: true,
+        },
+      },
     },
   });
+
+  if (!session) return null;
+  const { user, device } = session;
+  if (
+    session.userId !== claims.sub ||
+    session.revokedAt !== null ||
+    session.expiresAt <= new Date() ||
+    device.revokedAt !== null ||
+    device.userId !== claims.sub
+  ) {
+    return null;
+  }
   if (!user || user.deletedAt !== null || user.status !== "ACTIVE") return null;
 
   return {
@@ -70,8 +95,8 @@ export async function getAuthContext(request?: { headers?: Headers }): Promise<A
       preferredCurrency: user.preferredCurrency,
       timezone: user.timezone,
     },
-    sessionId: claims.sid,
-    deviceId: claims.did,
+    sessionId: session.id,
+    deviceId: session.deviceId,
   };
 }
 

@@ -18,11 +18,12 @@ import { sendVerificationEmail } from "@/lib/email";
 import { writeAudit } from "@/lib/audit";
 import { fail, getClientIp, newRequestId, parseJson, validate } from "@/lib/api";
 import { authRateLimit } from "@/lib/rateLimit";
-import { authJsonResponse } from "@/lib/cookies";
+import { authJsonResponse, isTokenMode } from "@/lib/cookies";
 import type { AuthUser } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   const requestId = newRequestId();
+  const tokenMode = isTokenMode(req);
   try {
     const ip = getClientIp(req);
     authRateLimit(`register:${ip}`);
@@ -126,7 +127,7 @@ export async function POST(req: NextRequest) {
       preferredCurrency: user.preferredCurrency,
       timezone: user.timezone,
     };
-    return authJsonResponse(me, accessToken, session.refreshToken, true);
+    return authJsonResponse(me, accessToken, session.refreshToken, true, { tokenMode });
   } catch (err) {
     return fail(err, requestId);
   }

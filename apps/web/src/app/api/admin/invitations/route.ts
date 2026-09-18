@@ -5,12 +5,10 @@ import { createInvitation, listInvitations } from "@/lib/invitations";
 import { writeAudit } from "@/lib/audit";
 import { AUDIT_ACTIONS } from "@/lib/constants";
 import { fail, getClientIp, newRequestId, ok, parseJson, validate } from "@/lib/api";
-import { ensureBootstrapAdmin } from "@/lib/bootstrap";
 
 export async function POST(req: NextRequest) {
   const requestId = newRequestId();
   try {
-    await ensureBootstrapAdmin();
     const ip = getClientIp(req);
     const context = await requireAdmin({ headers: req.headers });
 
@@ -51,7 +49,6 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const requestId = newRequestId();
   try {
-    await ensureBootstrapAdmin();
     const context = await requireAdmin({ headers: req.headers });
     const url = new URL(req.url);
     const status = url.searchParams.get("status") ?? undefined;
