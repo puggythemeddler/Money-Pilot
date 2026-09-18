@@ -48,7 +48,12 @@ model User {
   sessions             Session[]
   verificationTokens   VerificationToken[]
   auditLogs            AuditLog[]
-  createdInvitations   Invitation[]
+  createdInvitations   Invitation[] @relation("InvitationCreatedBy")
+  usedInvitation       Invitation? @relation("InvitationRegistration")
+  accounts             Account[]
+  categories           Category[]
+  transactions         Transaction[]
+  transfers            Transfer[]
 
   @@map("users")
 }
@@ -143,11 +148,12 @@ model Invitation {
   status           String    @default("PENDING") // PENDING | USED | REVOKED
   expiresAt        DateTime
   usedAt           DateTime?
-  registeredUserId String?
+  registeredUserId String?  @unique
   createdById      String?
   createdAt        DateTime  @default(now())
 
-  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy User? @relation("InvitationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  registeredUser User? @relation("InvitationRegistration", fields: [registeredUserId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([createdById])
@@ -171,5 +177,109 @@ model AuditLog {
 
   @@index([userId])
   @@index([createdAt])
+  @@index([userId, createdAt])
   @@map("audit_logs")
+}
+
+/// A money account the user tracks (cash, M-Pesa, bank...). Balances are never
+/// stored: they are derived as `openingBalance + sum(open signed transactions)`
+/// so the transaction log is the single source of truth.
+model Account {
+  id                  String    @id @default(cuid())
+  userId              String
+  name                String
+  type                String    @default("BANK") // CASH | BANK | MPESA | SAVINGS | CREDIT | OTHER
+  currency            String    @default("KES")
+  openingBalanceMinor Int       @default(0)
+  archivedAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  transfersOut Transfer[]    @relation("TransferFrom")
+  transfersIn  Transfer[]    @relation("TransferTo")
+
+  @@unique([userId, name])
+  @@index([userId, archivedAt])
+  @@map("accounts")
+}
+
+/// User-defined income/expense classification bucket.
+model Category {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  kind       String // INCOME | EXPENSE
+  color      String    @default("#64748b")
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([userId, name, kind])
+  @@index([userId, archivedAt])
+  @@map("categories")
+}
+
+/// A single money movement. `amountMinor` is SIGNED minor units: negative
+/// means money out of the account, positive money in. Transfer legs are
+/// created in pairs (one positive, one negative) linked through `Transfer.id`.
+/// Monetary limits: amountMinor is a 32-bit Int (max ±2_147_483_647 minor
+/// units ≈ ±21.5M currency units), more than enough for personal finance.
+model Transaction {
+  id              String    @id @default(cuid())
+  userId          String
+  accountId       String
+  categoryId      String?
+  kind            String // INCOME | EXPENSE | TRANSFER | ADJUSTMENT
+  amountMinor     Int
+  currency        String    @default("KES")
+  description     String?
+  merchant        String?
+  notes           String?
+  transactionDate DateTime // day-granular, stored at UTC midnight
+  transferId      String?
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account  Account   @relation(fields: [accountId], references: [id])
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transfer Transfer? @relation(fields: [transferId], references: [id], onDelete: SetNull)
+
+  @@index([userId, transactionDate])
+  @@index([accountId])
+  @@index([categoryId])
+  @@map("transactions")
+}
+
+/// A money movement between two of the user's own accounts. A Transfer row is
+/// the atomic bundle that produced the two linked Transaction legs.
+model Transfer {
+  id              String    @id @default(cuid())
+  userId          String
+  fromAccountId   String
+  toAccountId     String
+  amountMinor     Int
+  currency        String
+  transactionDate DateTime
+  description     String?
+  notes           String?
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromAccount Account      @relation("TransferFrom", fields: [fromAccountId], references: [id])
+  toAccount   Account      @relation("TransferTo", fields: [toAccountId], references: [id])
+  transactions Transaction[]
+
+  @@index([userId, transactionDate])
+  @@index([fromAccountId])
+  @@index([toAccountId])
+  @@map("transfers")
 }
