@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------
-// MoneyPilot database schema — Phase 1 (identity, sessions, audit)
+// MoneyPilot database schema — Phase 2 (identity, sessions, finance)
 //
 // DEVELOPMENT: provider is "sqlite" for zero-install local development.
 // PRODUCTION:  switch `provider` to "postgresql" and point DATABASE_URL at
@@ -9,13 +9,14 @@
 //
 // Design rules applied across the codebase:
 //  * Monetary values are INTEGER minor units (cents) plus a currency code.
-//    Float/Decimal is never used for money.
+//    Float/Decimal is never used for money. Columns use 64-bit integers
+//    (BigInt); the practical ceiling is Number.MAX_SAFE_INTEGER in JS.
 //  * All timestamps are stored in UTC and converted to the user's timezone
 //    for display.
 //  * Ownership and authorization are enforced at the application layer and
 //    constrained with unique indexes on user-scoped data.
 //  * Destructive financial changes are handled via soft deletes + audit
-//    logs in later phases.
+//    logs.
 // ------------------------------------------------------------------
 
 generator client {
@@ -54,6 +55,10 @@ model User {
   categories           Category[]
   transactions         Transaction[]
   transfers            Transfer[]
+  budgets              Budget[]
+  debts                Debt[]
+  bills                Bill[]
+  billPayments         BillPayment[]
 
   @@map("users")
 }
@@ -190,7 +195,7 @@ model Account {
   name                String
   type                String    @default("BANK") // CASH | BANK | MPESA | SAVINGS | CREDIT | OTHER
   currency            String    @default("KES")
-  openingBalanceMinor Int       @default(0)
+  openingBalanceMinor BigInt    @default(0)
   archivedAt          DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
@@ -218,6 +223,9 @@ model Category {
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
+  budgets      Budget[]
+  debts        Debt[]
+  bills        Bill[]
 
   @@unique([userId, name, kind])
   @@index([userId, archivedAt])
@@ -227,15 +235,15 @@ model Category {
 /// A single money movement. `amountMinor` is SIGNED minor units: negative
 /// means money out of the account, positive money in. Transfer legs are
 /// created in pairs (one positive, one negative) linked through `Transfer.id`.
-/// Monetary limits: amountMinor is a 32-bit Int (max ±2_147_483_647 minor
-/// units ≈ ±21.5M currency units), more than enough for personal finance.
+/// Columns are 64-bit BigInt (the practical limit is the JS safe-integer
+/// range, far beyond any realistic personal-finance balance).
 model Transaction {
   id              String    @id @default(cuid())
   userId          String
   accountId       String
   categoryId      String?
   kind            String // INCOME | EXPENSE | TRANSFER | ADJUSTMENT
-  amountMinor     Int
+  amountMinor     BigInt
   currency        String    @default("KES")
   description     String?
   merchant        String?
@@ -246,10 +254,11 @@ model Transaction {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  account  Account   @relation(fields: [accountId], references: [id])
-  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  transfer Transfer? @relation(fields: [transferId], references: [id], onDelete: SetNull)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account  Account       @relation(fields: [accountId], references: [id])
+  category Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transfer Transfer?     @relation(fields: [transferId], references: [id], onDelete: SetNull)
+  billPayment BillPayment?
 
   @@index([userId, transactionDate])
   @@index([accountId])
@@ -258,14 +267,18 @@ model Transaction {
 }
 
 /// A money movement between two of the user's own accounts. A Transfer row is
-/// the atomic bundle that produced the two linked Transaction legs.
+/// the atomic bundle that produced the two linked Transaction legs. `rate` is
+/// the decimal exchange rate used when the accounts have different currencies
+/// (1 unit of from-currency = `rate` units of to-currency, e.g. "129.45");
+/// it is null for same-currency transfers.
 model Transfer {
   id              String    @id @default(cuid())
   userId          String
   fromAccountId   String
   toAccountId     String
-  amountMinor     Int
-  currency        String
+  amountMinor     BigInt
+  currency        String // currency of the FROM account (the amount's currency)
+  rate            String?
   transactionDate DateTime
   description     String?
   notes           String?
@@ -282,4 +295,109 @@ model Transfer {
   @@index([fromAccountId])
   @@index([toAccountId])
   @@map("transfers")
+}
+
+/// A monthly spending budget. `categoryId` scopes it to one EXPENSE category;
+/// a null categoryId means the whole month's spending. `period` is a "YYYY-MM"
+/// key. Budgets are archive-only; the month's spent amount is always derived
+/// from the transaction log, never stored.
+model Budget {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  amountMinor BigInt
+  currency    String    @default("KES")
+  period      String // "YYYY-MM" (UTC)
+  categoryId  String?
+  notes       String?
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, period, name])
+  @@index([userId, period])
+  @@index([categoryId])
+  @@map("budgets")
+}
+
+/// A tracked debt (loan, mortgage, credit card). "Tracking, not trading": the
+/// entity records what you owe. Payments are ordinary EXPENSE transactions
+/// tagged through `categoryId` (the linked category, e.g. "Debt repayment");
+/// totalPaid is derived from those transactions, and balance = principal −
+/// totalPaid. Principal is the amount owed when tracking started.
+model Debt {
+  id                  String    @id @default(cuid())
+  userId              String
+  name                String
+  type                String    @default("LOAN") // LOAN | CREDIT_CARD | MORTGAGE | OTHER
+  institution         String?
+  principalMinor      BigInt
+  currency            String    @default("KES")
+  interestRate        String? // annual percentage as a decimal string, e.g. "13.5"
+  minimumPaymentMinor BigInt?
+  dueDay              Int?
+  categoryId          String? // EXPENSE category whose transactions count as payments
+  notes               String?
+  archivedAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([categoryId])
+  @@map("debts")
+}
+
+/// A recurring monthly bill (rent, subscriptions, utilities). `dueDay` is the
+/// day of the month it falls due (1-31). "Mark as paid" creates a real EXPENSE
+/// transaction in `categoryId` for that month on the bill day, so a paid bill
+/// is a genuine money movement visible in balances and budgets.
+model Bill {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  amountMinor BigInt
+  currency    String    @default("KES")
+  dueDay      Int // 1-31
+  categoryId  String?
+  notes       String?
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  payments BillPayment[]
+
+  @@index([userId])
+  @@index([categoryId])
+  @@map("bills")
+}
+
+/// One paid month of a bill. The linked Transaction is the real EXPENSE entry
+/// created on the account; this row records which bill/period it settled so a
+/// bill's paid status is derived from the payment log, not guessed.
+model BillPayment {
+  id            String   @id @default(cuid())
+  billId        String
+  userId        String
+  transactionId String   @unique
+  paidFor       String // "YYYY-MM"
+  amountMinor   BigInt
+  currency      String
+  createdAt     DateTime @default(now())
+
+  bill        Bill        @relation(fields: [billId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+
+  @@unique([billId, paidFor])
+  @@index([userId, paidFor])
+  @@index([billId])
+  @@map("bill_payments")
 }

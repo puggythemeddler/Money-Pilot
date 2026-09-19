@@ -3,6 +3,7 @@ import {
   ErrorCodes,
   accountCreateSchema,
   accountUpdateSchema,
+  minorToNumber,
 } from "@moneypilot/shared";
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -26,7 +27,7 @@ export interface AccountWithBalance {
 
 async function withBalances(
   userId: string,
-  rows: { id: string; openingBalanceMinor: number }[],
+  rows: { id: string; openingBalanceMinor: number | bigint }[],
 ): Promise<Record<string, number>> {
   const balances = await accountBalances(
     userId,
@@ -34,7 +35,8 @@ async function withBalances(
   );
   const out: Record<string, number> = {};
   for (const r of rows) {
-    out[r.id] = r.openingBalanceMinor + (balances[r.id]?.balanceMinor ?? 0);
+    const opening = minorToNumber(r.openingBalanceMinor);
+    out[r.id] = opening + (balances[r.id]?.balanceMinor ?? 0);
   }
   return out;
 }
@@ -50,8 +52,8 @@ export async function listAccounts(userId: string, includeArchived = false) {
     name: a.name,
     type: a.type,
     currency: a.currency,
-    openingBalanceMinor: a.openingBalanceMinor,
-    balanceMinor: current[a.id] ?? a.openingBalanceMinor,
+    openingBalanceMinor: minorToNumber(a.openingBalanceMinor),
+    balanceMinor: current[a.id] ?? minorToNumber(a.openingBalanceMinor),
     archived: a.archivedAt !== null,
     createdAt: a.createdAt.toISOString(),
   }));

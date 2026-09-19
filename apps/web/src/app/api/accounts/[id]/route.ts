@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { accountUpdateSchema } from "@moneypilot/shared";
+import { accountUpdateSchema, minorToNumber } from "@moneypilot/shared";
 import { fail, getClientIp, newRequestId, ok, parseJson, validate } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { getOwnedAccount, updateAccount } from "@/lib/finance/accounts";
@@ -16,14 +16,15 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
     const { id } = await ctx.params;
     const account = await getOwnedAccount(context.user.id, id);
     const balance = await accountBalances(context.user.id, [id]);
+    const opening = minorToNumber(account.openingBalanceMinor);
     return ok({
       account: {
         id: account.id,
         name: account.name,
         type: account.type,
         currency: account.currency,
-        openingBalanceMinor: account.openingBalanceMinor,
-        balanceMinor: account.openingBalanceMinor + (balance[id]?.balanceMinor ?? 0),
+        openingBalanceMinor: opening,
+        balanceMinor: opening + (balance[id]?.balanceMinor ?? 0),
         archived: account.archivedAt !== null,
         createdAt: account.createdAt.toISOString(),
       },
@@ -49,7 +50,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         name: account.name,
         type: account.type,
         currency: account.currency,
-        openingBalanceMinor: account.openingBalanceMinor,
+        openingBalanceMinor: minorToNumber(account.openingBalanceMinor),
         archived: account.archivedAt !== null,
       },
     });

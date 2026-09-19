@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { minorToNumber } from "@moneypilot/shared";
 
 export interface AccountBalance {
   accountId: string;
@@ -26,7 +27,8 @@ export async function accountBalances(
   for (const id of accountIds) balances.set(id, 0);
   for (const r of rows) {
     if (r._sum.amountMinor !== null) {
-      balances.set(r.accountId, (balances.get(r.accountId) ?? 0) + r._sum.amountMinor);
+      const v = minorToNumber(r._sum.amountMinor);
+      balances.set(r.accountId, (balances.get(r.accountId) ?? 0) + v);
     }
   }
   const out: Record<string, AccountBalance> = {};
@@ -59,7 +61,7 @@ export async function totalsByRange(
   let income = 0;
   let expense = 0;
   for (const r of rows) {
-    const v = r._sum.amountMinor ?? 0;
+    const v = minorToNumber(r._sum.amountMinor ?? 0);
     if (r.kind === "INCOME") income += v;
     else if (r.kind === "EXPENSE") expense += v;
   }

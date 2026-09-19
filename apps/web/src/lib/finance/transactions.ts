@@ -4,6 +4,7 @@ import {
   transactionCreateSchema,
   transactionUpdateSchema,
   transactionQuerySchema,
+  minorToNumber,
 } from "@moneypilot/shared";
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -70,7 +71,7 @@ export async function listTransactions(userId: string, query: TransactionQuery) 
     items: rows.map((t): TransactionItem => ({
       id: t.id,
       kind: t.kind,
-      amountMinor: t.amountMinor,
+      amountMinor: minorToNumber(t.amountMinor),
       currency: t.currency,
       description: t.description,
       merchant: t.merchant,

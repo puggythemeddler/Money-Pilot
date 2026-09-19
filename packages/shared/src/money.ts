@@ -14,6 +14,15 @@ export interface Money {
 /** A safe upper bound for integer minor-unit arithmetic (2^53 - 1). */
 export const MAX_SAFE_MINOR_UNITS = Number.MAX_SAFE_INTEGER;
 
+/**
+ * Coerces a value coming out of the ORM (Prisma BigInt columns, or plain
+ * numbers in memory) into a JS number. Prisma returns `bigint` for BigInt
+ * columns; data sources that already hold numbers pass through unchanged.
+ */
+export function minorToNumber(value: number | bigint): number {
+  return typeof value === "bigint" ? Number(value) : value;
+}
+
 /** Converts a decimal amount to minor units (e.g. 12.34 -> 1234). */
 export function toMinorUnits(amount: number, currencyCode: string = "KES"): number {
   if (!Number.isFinite(amount)) {
@@ -130,6 +139,73 @@ export function sumMinorUnits(...values: number[]): number {
     }
   }
   return total;
+}
+
+/**
+ * An exact rational representation of a decimal exchange rate:
+ * `value = numerator / denominator`, e.g. "129.45" -> 12945/100.
+ */
+export interface RateFraction {
+  numerator: bigint;
+  denominator: bigint;
+}
+
+/**
+ * Parses a decimal exchange-rate string into an exact fraction so conversions
+ * never go through floating-point arithmetic. Rate must be positive and have
+ * at most 8 fractional digits.
+ *
+ * @throws RangeError for malformed, empty, non-positive, or over-precise input.
+ */
+export function parseRateFraction(rate: string): RateFraction {
+  const cleaned = rate.trim();
+  const parts = /^([0-9]+)(?:\.([0-9]+))?$/.exec(cleaned);
+  if (!parts) {
+    throw new RangeError("Exchange-rate format is invalid.");
+  }
+  const intStr = parts[1]!;
+  const fracStr = parts[2] ?? "";
+  const numerator = BigInt(intStr + fracStr);
+  if (numerator <= 0n) {
+    throw new RangeError("Exchange rate must be greater than zero.");
+  }
+  if (fracStr.length > 8) {
+    throw new RangeError("Exchange rate supports at most 8 decimal places.");
+  }
+  return { numerator, denominator: BigInt(10 ** fracStr.length) };
+}
+
+/**
+ * Converts a signed minor-unit amount from one currency to another using an
+ * exact rate fraction: 1 unit of source = `rate` units of target. The result
+ * is rounded half-up to the target currency's minor unit and, like all money
+ * values in this codebase, is a safe-integer `number`.
+ *
+ * @throws RangeError when the result overflows the safe-integer range.
+ */
+export function convertMinorUnitsWithRate(
+  sourceMinor: number | bigint,
+  rate: RateFraction,
+  sourceDigits: number,
+  targetDigits: number,
+): number {
+  const raw = typeof sourceMinor === "bigint" ? sourceMinor : BigInt(Math.trunc(sourceMinor));
+  const sign = raw < 0n ? -1n : 1n;
+  const source = sign * raw;
+  // targetMinor = round_half_up( sourceMinor * rate * 10^targetDigits / 10^sourceDigits )
+  const numerator = rate.numerator * 10n ** BigInt(targetDigits);
+  const denominator = rate.denominator * 10n ** BigInt(sourceDigits);
+  const quarter = source * numerator * 2n + denominator;
+  const result = sign * (quarter / (2n * denominator));
+  if (result > BigInt(MAX_SAFE_MINOR_UNITS) || result < -BigInt(MAX_SAFE_MINOR_UNITS)) {
+    throw new RangeError("Converted amount exceeded the safe integer range.");
+  }
+  return Number(result);
+}
+
+/** Returns the number of minor-unit digits for a currency (2 for most). */
+export function currencyMinorUnitDigits(currencyCode: string): number {
+  return requireCurrency(currencyCode).minorUnitDigits;
 }
 
 export interface FormatMoneyOptions {

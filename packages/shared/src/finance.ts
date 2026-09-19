@@ -38,6 +38,9 @@ export type CategoryKind = (typeof CATEGORY_KINDS)[keyof typeof CATEGORY_KINDS];
 export const ACCOUNT_TYPE_LIST = ["CASH", "BANK", "MPESA", "SAVINGS", "CREDIT", "OTHER"] as const;
 export const TRANSACTION_KIND_LIST = ["INCOME", "EXPENSE", "TRANSFER", "ADJUSTMENT"] as const;
 export const CATEGORY_KIND_LIST = ["INCOME", "EXPENSE"] as const;
+export const DEBT_TYPE_LIST = ["LOAN", "CREDIT_CARD", "MORTGAGE", "OTHER"] as const;
+
+export type DebtType = (typeof DEBT_TYPE_LIST)[number];
 
 /**
  * Default expense and income categories created for every new account. Users

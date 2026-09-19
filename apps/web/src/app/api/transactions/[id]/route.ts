@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { transactionUpdateSchema } from "@moneypilot/shared";
+import { transactionUpdateSchema, minorToNumber } from "@moneypilot/shared";
 import { fail, getClientIp, newRequestId, ok, parseJson, validate } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { deleteTransaction, updateTransaction } from "@/lib/finance/transactions";
@@ -21,7 +21,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     return ok({
       transaction: {
         id: transaction.id,
-        amountMinor: transaction.amountMinor,
+        amountMinor: minorToNumber(transaction.amountMinor),
         transactionDate: transaction.transactionDate.toISOString(),
         categoryId: transaction.categoryId,
       },

@@ -112,4 +112,29 @@ export const Icons = {
       <circle cx="9" cy="9" r="1.2" fill="currentColor" stroke="none" />
     </svg>
   ),
+  target: (props: SVGProps<SVGSVGElement>) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="5" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
+      <path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5" />
+    </svg>
+  ),
+  scale: (props: SVGProps<SVGSVGElement>) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path d="M12 4v16" />
+      <path d="M7 4h10l-5 7-5-7Z" />
+      <path d="M5 20h14" />
+      <path d="M4 11.5 2 8l2-3 2 3-2 3.5Z" />
+      <path d="M20 11.5 18 8l2-3 2 3-2 3.5Z" />
+    </svg>
+  ),
+  calendar: (props: SVGProps<SVGSVGElement>) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
+      <path d="M3.5 9.5h17" />
+      <path d="M8 3v4M16 3v4" />
+      <path d="M8 14h3M13 14h3M8 17h3" />
+    </svg>
+  ),
 };

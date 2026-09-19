@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { minorToNumber } from "@moneypilot/shared";
 import { listAccounts } from "./accounts";
 import { totalsByRange } from "./balances";
 import { isoDate, toUtcMidnight } from "./dates";
@@ -53,7 +54,7 @@ export async function dashboardSummary(userId: string) {
         categoryId: s.categoryId,
         categoryName: info?.name ?? "Uncategorized",
         color: info?.color ?? "#94a3b8",
-        amountMinor: -(s._sum.amountMinor ?? 0),
+        amountMinor: -minorToNumber(s._sum.amountMinor ?? 0),
       };
     })
     .sort((a, b) => b.amountMinor - a.amountMinor)
@@ -84,7 +85,7 @@ export async function dashboardSummary(userId: string) {
     recentTransactions: recent.map((t) => ({
       id: t.id,
       kind: t.kind,
-      amountMinor: t.amountMinor,
+      amountMinor: minorToNumber(t.amountMinor),
       currency: t.currency,
       description: t.description,
       merchant: t.merchant,

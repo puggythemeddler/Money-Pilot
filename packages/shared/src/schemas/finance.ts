@@ -5,6 +5,7 @@ import {
   ACCOUNT_TYPE_LIST,
   CATEGORY_KIND_LIST,
   COLOR_PRESETS,
+  DEBT_TYPE_LIST,
   TRANSACTION_KIND_LIST,
 } from "../finance";
 
@@ -144,6 +145,20 @@ function cuiOptional(label: string) {
 
 export type TransactionUpdateInput = z.infer<typeof transactionUpdateSchema>;
 
+/**
+ * A positive decimal exchange rate with at most 8 fractional digits,
+ * matched against the exact BigInt parser in the service layer.
+ */
+export const rateSchema = z
+  .string()
+  .trim()
+  .max(24)
+  .refine((s) => /^[0-9]+(?:\.[0-9]{1,8})?$/.test(s) && !/^0+(?:\.0*)?$/.test(s), {
+    message: "Enter a valid exchange rate (e.g. 129.45).",
+  });
+
+export type RateInput = z.infer<typeof rateSchema>;
+
 export const transferCreateSchema = z.object({
   fromAccountId: cuid("Source account"),
   toAccountId: cuid("Destination account"),
@@ -152,9 +167,141 @@ export const transferCreateSchema = z.object({
   transactionDate: dateSchema,
   description: descriptionSchema.optional(),
   notes: z.string().trim().max(500).optional(),
+  /**
+   * Decimal exchange rate used when the source and destination accounts have
+   * different currencies: 1 unit of source = `rate` units of destination
+   * (e.g. "129.45" for USD -> KES). Required for cross-currency transfers and
+   * ignored for same-currency ones.
+   */
+  rate: rateSchema.optional(),
 });
 
 export type TransferCreateInput = z.infer<typeof transferCreateSchema>;
+
+export const transferUpdateSchema = z.object({
+  amount: moneyInputSchema.optional(),
+  transactionDate: dateSchema.optional(),
+  description: descriptionSchema.optional(),
+  notes: z.string().trim().max(500).optional(),
+  rate: rateSchema.optional(),
+});
+
+export type TransferUpdateInput = z.infer<typeof transferUpdateSchema>;
+
+/** A "YYYY-MM" calendar period key used by budgets. */
+export const monthPeriodSchema = z
+  .string()
+  .trim()
+  .regex(/^[0-9]{4}-(0[1-9]|1[0-2])$/, { message: "Period must look like YYYY-MM." });
+
+export type MonthPeriod = z.infer<typeof monthPeriodSchema>;
+
+/** A yearly-percentage interest rate, optional, up to 2 decimal places. */
+const interestRateSchema = z
+  .string()
+  .trim()
+  .max(16)
+  .refine((s) => /^[0-9]+(?:\.[0-9]{1,2})?$/.test(s), {
+    message: "Enter a valid interest rate (e.g. 13.5).",
+  });
+
+export const budgetCreateSchema = z.object({
+  name: z.string().trim().min(1, "Name is required.").max(60),
+  amount: moneyInputSchema,
+  currency: preferredCurrencySchema.default("KES"),
+  period: monthPeriodSchema,
+  categoryId: cuiOptional("Category"),
+  notes: z.string().trim().max(500).optional(),
+});
+
+export type BudgetCreateInput = z.infer<typeof budgetCreateSchema>;
+
+export const budgetUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(60).optional(),
+  amount: moneyInputSchema.optional(),
+  notes: z.string().trim().max(500).optional(),
+  archived: z.boolean().optional(),
+});
+
+export type BudgetUpdateInput = z.infer<typeof budgetUpdateSchema>;
+
+/** Query filters for listing budgets (defaults to the current month). */
+export const budgetQuerySchema = z.object({
+  period: monthPeriodSchema.optional(),
+});
+
+export type BudgetQuery = z.infer<typeof budgetQuerySchema>;
+
+export const debtCreateSchema = z.object({
+  name: z.string().trim().min(1, "Name is required.").max(60),
+  type: z.enum(DEBT_TYPE_LIST).default("LOAN"),
+  institution: z.string().trim().max(60).optional(),
+  principal: moneyInputSchema,
+  currency: preferredCurrencySchema.default("KES"),
+  interestRate: interestRateSchema.optional(),
+  minimumPayment: moneyNonNegativeInputSchema.optional(),
+  dueDay: z.coerce.number().int().min(1).max(31).optional(),
+  categoryId: cuiOptional("Category"),
+  notes: z.string().trim().max(500).optional(),
+});
+
+export type DebtCreateInput = z.infer<typeof debtCreateSchema>;
+
+export const debtUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(60).optional(),
+  type: z.enum(DEBT_TYPE_LIST).optional(),
+  institution: z.string().trim().max(60).optional(),
+  principal: moneyInputSchema.optional(),
+  interestRate: interestRateSchema.optional(),
+  minimumPayment: moneyNonNegativeInputSchema.optional(),
+  dueDay: z.coerce.number().int().min(1).max(31).optional(),
+  categoryId: cuiOptional("Category"),
+  notes: z.string().trim().max(500).optional(),
+  archived: z.boolean().optional(),
+});
+
+export type DebtUpdateInput = z.infer<typeof debtUpdateSchema>;
+
+/** Debts can be filtered by whether they are still active (default: active). */
+export const debtQuerySchema = z.object({
+  includeArchived: z.coerce.boolean().optional(),
+});
+
+export type DebtQuery = z.infer<typeof debtQuerySchema>;
+
+/** Bills are monthly recurring obligations; dueDay is the day of the month. */
+export const billCreateSchema = z.object({
+  name: z.string().trim().min(1, "Name is required.").max(60),
+  amount: moneyInputSchema,
+  currency: preferredCurrencySchema.default("KES"),
+  dueDay: z.coerce.number().int().min(1).max(31),
+  categoryId: cuiOptional("Category"),
+  notes: z.string().trim().max(500).optional(),
+});
+
+export type BillCreateInput = z.infer<typeof billCreateSchema>;
+
+export const billUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(60).optional(),
+  amount: moneyInputSchema.optional(),
+  dueDay: z.coerce.number().int().min(1).max(31).optional(),
+  categoryId: cuiOptional("Category"),
+  notes: z.string().trim().max(500).optional(),
+  archived: z.boolean().optional(),
+});
+
+export type BillUpdateInput = z.infer<typeof billUpdateSchema>;
+
+/**
+ * Paying a bill records a real EXPENSE transaction on an account (optionally
+ * on a specific day; today when omitted). The amount is taken from the bill.
+ */
+export const billPaySchema = z.object({
+  accountId: cuid("Account"),
+  transactionDate: dateSchema.optional(),
+});
+
+export type BillPayInput = z.infer<typeof billPaySchema>;
 
 /** Query filters shared by transaction listing endpoints. */
 export const transactionQuerySchema = z.object({

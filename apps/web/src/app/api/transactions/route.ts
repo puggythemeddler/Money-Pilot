@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { transactionCreateSchema, transactionQuerySchema } from "@moneypilot/shared";
+import { transactionCreateSchema, transactionQuerySchema, minorToNumber } from "@moneypilot/shared";
 import { fail, getClientIp, newRequestId, ok, parseJson, validate } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { createTransaction, listTransactions } from "@/lib/finance/transactions";
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
         transaction: {
           id: transaction.id,
           kind: transaction.kind,
-          amountMinor: transaction.amountMinor,
+          amountMinor: minorToNumber(transaction.amountMinor),
           currency: transaction.currency,
           transactionDate: transaction.transactionDate.toISOString(),
           accountId: transaction.accountId,

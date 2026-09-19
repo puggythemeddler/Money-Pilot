@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatMoney } from "@moneypilot/shared";
+import { formatMoney, fromMinorUnits, parseMoneyToMinorUnits } from "@moneypilot/shared";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -59,6 +59,7 @@ export function TransactionsManager({ items, total, accounts, categories, filter
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<TransactionItem | null>(null);
 
   const kindCategories = categories.filter((c) => c.kind === kind);
 
@@ -100,6 +101,29 @@ export function TransactionsManager({ items, total, accounts, categories, filter
       setError(err instanceof ApiClientError ? err.message : "Could not delete the transaction.");
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    setError(null);
+    setBusy(true);
+    const payload: Record<string, string> = {
+      amount: String(fromMinorUnits(Math.abs(editing.amountMinor), editing.currency === "UGX" ? "KES" : editing.currency)),
+      transactionDate: editing.transactionDate.slice(0, 10),
+    };
+    if (editing.description?.trim()) payload.description = editing.description.trim();
+    if (editing.merchant?.trim()) payload.merchant = editing.merchant.trim();
+    if (editing.categoryId) payload.categoryId = editing.categoryId;
+    try {
+      await apiFetch(`/api/transactions/${editing.id}`, { method: "PATCH", body: JSON.stringify(payload) });
+      setEditing(null);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Could not update the transaction.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -191,6 +215,82 @@ export function TransactionsManager({ items, total, accounts, categories, filter
         </CardContent>
       </Card>
 
+      {editing ? (
+        <Card>
+          <CardContent>
+            <p className="mb-3 text-sm font-semibold text-slate-900">
+              Edit {editing.kind.toLowerCase()} · {editing.accountName}
+            </p>
+            <form onSubmit={saveEdit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="Amount" htmlFor="tx-edit-amount">
+                <Input
+                  id="tx-edit-amount"
+                  value={String(fromMinorUnits(Math.abs(editing.amountMinor), editing.currency))}
+                  onChange={(e) =>
+                    setEditing({
+                      ...editing,
+                      amountMinor:
+                        (editing.amountMinor < 0 ? -1 : 1) * parseMoneyToMinorUnits(e.target.value, editing.currency),
+                    })
+                  }
+                  inputMode="decimal"
+                  required
+                />
+              </Field>
+              <Field label="Date" htmlFor="tx-edit-date">
+                <Input
+                  id="tx-edit-date"
+                  type="date"
+                  value={editing.transactionDate.slice(0, 10)}
+                  onChange={(e) => setEditing({ ...editing, transactionDate: e.target.value })}
+                  required
+                />
+              </Field>
+              <Field label="Description" htmlFor="tx-edit-description">
+                <Input
+                  id="tx-edit-description"
+                  value={editing.description ?? ""}
+                  onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+                  placeholder="Short description"
+                />
+              </Field>
+              <Field label="Merchant / payer" htmlFor="tx-edit-merchant">
+                <Input
+                  id="tx-edit-merchant"
+                  value={editing.merchant ?? ""}
+                  onChange={(e) => setEditing({ ...editing, merchant: e.target.value })}
+                  placeholder="Optional"
+                />
+              </Field>
+              <Field label="Category" htmlFor="tx-edit-category">
+                <Select
+                  id="tx-edit-category"
+                  value={editing.categoryId ?? ""}
+                  onChange={(e) => setEditing({ ...editing, categoryId: e.target.value || null })}
+                >
+                  <option value="">No category</option>
+                  {categories
+                    .filter((c) => c.kind === editing.kind)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                </Select>
+              </Field>
+              <div className="flex items-end gap-2">
+                <Button type="submit" loading={busy}>
+                  Save changes
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardContent className="grid gap-3 sm:grid-cols-3">
           <Field label="Filter by kind" htmlFor="f-kind">
@@ -266,6 +366,15 @@ export function TransactionsManager({ items, total, accounts, categories, filter
                       {t.amountMinor < 0 ? "−" : "+"}
                       {formatMoney(Math.abs(t.amountMinor), t.currency)}
                     </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditing(t)}
+                      disabled={t.kind === "TRANSFER" || busyId !== null || busy}
+                      title={t.kind === "TRANSFER" ? "Edit transfers from the Transfers page" : "Edit this entry"}
+                    >
+                      {t.kind === "TRANSFER" ? "Via transfer" : "Edit"}
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => remove(t.id)} disabled={busyId !== null} loading={busyId === t.id}>
                       Delete
                     </Button>
@@ -277,7 +386,8 @@ export function TransactionsManager({ items, total, accounts, categories, filter
         </CardContent>
       </Card>
       <p className="text-sm text-slate-500">
-        Deleting a transfer removes both legs so balances stay consistent. Editing entries is coming next.
+        Delete an expense or income by removing its row. Transfer legs are edited from the Transfers page so
+        the out leg and in leg always stay in sync.
       </p>
     </div>
   );

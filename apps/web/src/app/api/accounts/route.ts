@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { fail, getClientIp, newRequestId, ok, parseJson, validate } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { createAccount, listAccounts } from "@/lib/finance/accounts";
-import { accountCreateSchema } from "@moneypilot/shared";
+import { accountCreateSchema, minorToNumber } from "@moneypilot/shared";
 
 export async function GET(req: NextRequest) {
   const requestId = newRequestId();
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
           name: account.name,
           type: account.type,
           currency: account.currency,
-          openingBalanceMinor: account.openingBalanceMinor,
+          openingBalanceMinor: minorToNumber(account.openingBalanceMinor),
           archived: false,
         },
       },
