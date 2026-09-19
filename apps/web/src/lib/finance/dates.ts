@@ -26,3 +26,22 @@ export function dayRange(date: Date | string): { from: Date; to: Date } {
   const day = toUtcMidnight(date);
   return { from: day, to: new Date(day.getTime() + 86_400_000) };
 }
+
+/** UTC-midnight range covering a whole "YYYY-MM" calendar period. */
+export function periodRange(period: string): { from: Date; to: Date } {
+  const m = /^(\d{4})-(\d{2})$/.exec(period);
+  if (!m) {
+    throw new AppError(ErrorCodes.VALIDATION, "Period must look like YYYY-MM.", 400);
+  }
+  const year = Number(m[1]);
+  const month = Number(m[2]) - 1;
+  const from = new Date(Date.UTC(year, month, 1));
+  const to = new Date(Date.UTC(year, month + 1, 1));
+  return { from, to };
+}
+
+/** The current month key as "YYYY-MM" in UTC. */
+export function currentPeriod(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+}

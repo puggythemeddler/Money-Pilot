@@ -8,11 +8,16 @@ const realNav = [
   { href: "/dashboard/accounts", label: "Accounts", icon: Icons.wallet },
   { href: "/dashboard/transactions", label: "Transactions", icon: Icons.receipt },
   { href: "/dashboard/transfers", label: "Transfers", icon: Icons.swap },
+  { href: "/dashboard/budgets", label: "Budgets", icon: Icons.target },
+  { href: "/dashboard/debts", label: "Debts", icon: Icons.scale },
+  { href: "/dashboard/bills", label: "Bills", icon: Icons.calendar },
   { href: "/dashboard/categories", label: "Categories", icon: Icons.tag },
   { href: "/dashboard/settings", label: "Settings", icon: Icons.settings },
 ];
 
-const comingSoon = ["Debts", "Bills", "Budgets", "Calendar", "Reports", "Imports"];
+const mobileNav = ["/dashboard", "/dashboard/accounts", "/dashboard/transactions", "/dashboard/transfers", "/dashboard/budgets"];
+
+const comingSoon = ["Calendar", "Reports", "Imports"];
 
 function MobileNotice({ children }: { children: React.ReactNode }) {
   return (
@@ -77,12 +82,13 @@ export function Sidebar({ user }: { user: AuthUser }) {
 }
 
 export function BottomNav() {
+  const items = realNav.filter((item) => mobileNav.includes(item.href));
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-around border-t border-slate-200 bg-white/95 px-2 py-2 backdrop-blur lg:hidden"
       aria-label="Mobile navigation"
     >
-      {realNav.map((item) => (
+      {items.map((item) => (
         <Link
           key={item.href}
           href={item.href}
