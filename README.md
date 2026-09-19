@@ -33,9 +33,9 @@ Formatting back to a currency string uses `formatMoney`.
 
 - `Transaction.amountMinor` is *signed*: expenses are negative, income is positive, transfer
   legs are `−amount` (out) and `+amount` (in). The sign is your balance ledger.
-- Stored as a 32-bit integer field: column values are clamped to the signed 32-bit range
-  (±2,147,483,647 minor units). MoneyPilot documents this ceiling; multi-billion-unit entries
-  are not supported.
+- Stored as a 64-bit integer field (`BIGINT`): the practical ceiling is JavaScript's
+  `Number.MAX_SAFE_INTEGER` (9,007,199,254,740,991 minor units) — amounts are decoded to
+  `number` exactly at the service boundary via `minorToNumber`.
 - **Balances are derived, never stored.** An account's balance is its opening balance plus the
   sum of all *open* (non-deleted) transactions. Deleting or editing a transaction changes the
   balance automatically and consistently.
@@ -47,7 +47,10 @@ Formatting back to a currency string uses `formatMoney`.
 
 ### Limits and semantics
 
-- Transfers are same-currency only; cross-currency movements are out of scope.
+- Transfers between any two of your own accounts. Cross-currency transfers carry an exact
+  decimal exchange rate (`1 from = rate to`); the destination leg is converted with an exact
+  rate fraction and stored in the destination currency. Transfers are editable in place
+  (amount, rate, date, description) and both legs are recomputed atomically.
 - Insufficient-balance is intentionally NOT enforced — credit accounts and overdrafts are
   legitimate, so balance is allowed to go negative.
 - Category `kind` must match the transaction kind (an expense cannot use an income category).
@@ -209,24 +212,29 @@ npm run typecheck     # TypeScript checks (all workspaces)
 
 Each phase is finished only when the following all pass:
 
-- [x] Unit tests (`packages/shared`) — 52 tests, exact money parsing & schemas
+- [x] Unit tests (`packages/shared`) — 62 tests, exact money parsing, FX rate conversion & schemas
 - [x] TypeScript (`npm run typecheck`)
 - [x] ESLint (`npm run lint`)
 - [x] Production build (`npm run build`)
-- [x] API/DB consistency (Prisma migrations: `init`, `add_roles_and_invitations`, `finance_accounts`)
-- [x] End-to-end smoke — public + private-mode auth scenarios, plus a 55-assertion finance suite
+- [x] API/DB consistency (Prisma migrations: `init`, `add_roles_and_invitations`, `finance_accounts`,
+      `widen_amount_minor_bigint`, `add_bill_payments`)
+- [x] End-to-end smoke — public + private-mode auth scenarios, a 55-assertion finance suite
       (accounts, categories, transactions, transfers, dashboard, cross-user isolation, UI renders)
+      and a 64-assertion advanced suite (64-bit amounts, exact FX transfers, transfer editing,
+      budgets, debts, bills — including cross-user isolation and UI renders)
 - [x] Responsive UI review (no dead links or buttons)
 
 ## Roadmap
 
 1. **Foundation** *(done)* — repo, architecture, database, auth, user model, design system,
    env config, private mode, admin, data privacy, docs.
-2. **Financial engine** *(current)* — accounts, transactions, categories, income, expenses,
-   transfers. *Done: modeling, services, API, UI, tests.* Budgets, debts and bills still to come
-   in the same engine.
-3. **Budgets & goals** — monthly budgets, savings/spending goals, rollovers.
-4. **Debts & investments** — debt entries, installments, payoff plans, tracking (not trading).
+2. **Financial engine** *(done)* — accounts, transactions, categories, income, expenses,
+   transfers (exact-rate cross-currency FX included), monthly budgets, debt tracking, and
+   recurring bills — modeling, services, API, UI, tests all complete.
+3. **Budgets & goals** *(partial)* — monthly budgets are done; savings/spending goals and
+   budget rollovers are still to come.
+4. **Debts & investments** *(partial)* — debt tracking is done ("tracked, not traded" — no
+   money movement); payoff plans, installments, and investments are still to come.
 5. **Reports & insights** — analytics, charts, exports.
 6. **Mobile apps** — Android/iOS companion clients.
 7. **Hardening & subscriptions** — optional paid tiers for hosting/storage only.
@@ -238,11 +246,11 @@ third-party payment processing, social networking, and an unsolicited advisory e
 
 - Email is printed to the server console when no SMTP is configured.
 - SQLite is for local development; use PostgreSQL for production.
-- Cell values (including `amountMinor`) are limited to the signed 32-bit integer range; very
-  large amounts in hundreds of millions of units are not supported.
-- Editing and deleting whole standalone transactions is available; editing transfer legs
-  individually is deliberately disallowed to keep the two-leg bundle consistent.
-- Cross-currency transfers and exchange-rate handling are out of scope for Phase 2.
+- Cell values (including `amountMinor`) are 64-bit `BIGINT`; JavaScript's safe-integer ceiling
+  therefore applies (see "Money model").
+- Whole transfer bundles can be edited in place (amount, rate, date, name, notes); changing the
+  source/destination pair means deleting and re-creating the transfer, since the two-leg bundle
+  must always stay consistent.
 
 ## License
 
