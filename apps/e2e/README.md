@@ -12,9 +12,9 @@ From the repo root:
 npm run e2e
 ```
 
-The first run installs nothing but may build the web app first if no
-production build exists (`.next` missing), so it is slower; later runs reuse
-the build. Install the browser binary once, inside this folder:
+Every run rebuilds the web app first (the served production build must match
+the current source tree — a stale `.next` would 404 newly added routes).
+Install the browser binary once, inside this folder:
 
 ```sh
 npx playwright install chromium
@@ -53,6 +53,7 @@ npx playwright install chromium
 | `transactions.spec.ts` | income + expense entry, kind + search filters, USD formatting, API pagination |
 | `transfers.spec.ts`  | same-currency transfer with balance checks, both legs in history    |
 | `dashboard.spec.ts`  | aggregate values, empty states (with and without accounts)           |
+| `household.spec.ts`  | owner creates household + joint account + invite link, member joins via the link; member records onto a shared account with attribution + balance aggregation; read-only member blocked from writes but sees entries; personal-account privacy between members (404s, no transfer-row leak); owner flips permissions, removes members, and last-member-leave archives the household |
 
 The suite has already caught a real production bug pre-deploy: the CSRF
 origin check originally compared against Next's middleware URL, which is
@@ -70,7 +71,8 @@ Chromium with system deps, builds the app, runs the suite, and uploads
 - **Port 3105 busy** — locally the config reuses an already-running server
   (`reuseExistingServer` outside CI); kill the stale one or it will be
   tested instead of fresh code.
-- **Slow first run** — it includes a production build.
+- **Slow runs** — every run includes a fresh production build (on purpose:
+  it guarantees the served build matches the source tree).
 - **Flaky-looking waits** — the UI intentionally resets forms and merges
   filter state with the last server render; the specs wait for the rendered
   result (e.g. the "N transactions" header) between filter changes. Keep

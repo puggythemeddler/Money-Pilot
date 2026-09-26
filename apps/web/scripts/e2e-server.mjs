@@ -34,10 +34,9 @@ execSync(`${npx} prisma db push --schema prisma/schema.sqlite.prisma`, {
   stdio: "inherit",
 });
 
-if (!existsSync(path.join(web, ".next", "BUILD_ID"))) {
-  console.log("e2e-server: no production build found, running `next build` first…");
-  execSync(`${npx} next build`, { cwd: web, env, stdio: "inherit" });
-}
+// Always rebuild: a stale .next from a previous run would serve outdated
+// routes (new pages would 404) — the served build must match this tree.
+execSync(`${npx} next build`, { cwd: web, env, stdio: "inherit" });
 
 const nextBin = [
   path.join(web, "node_modules", "next", "dist", "bin", "next"),
