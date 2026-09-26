@@ -1,8 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// The webServer boots `apps/web` in production mode against a fresh, isolated
-// SQLite database (see apps/web/scripts/e2e-server.mjs). Each test registers
-// its own user with a unique email, so tests can run fully in parallel.
+// The webServer boots the full two-process stack: the MoneyPilot API
+// (apps/api on port 4000, fresh isolated SQLite database) plus the web app
+// (next start on port 3105) proxying /api/* to it — see
+// apps/e2e/scripts/e2e-server.mjs. Each test registers its own user with a
+// unique email. The health URL goes through the web proxy, proving the
+// whole chain (web up, rewrite wired, API up).
 export default defineConfig({
   testDir: "./tests",
   // One worker: every test talks to the same SQLite-backed server, and
@@ -23,9 +26,9 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "node ../web/scripts/e2e-server.mjs",
+    command: "node scripts/e2e-server.mjs",
     url: "http://localhost:3105/api/health",
-    // The first run on a clean clone also builds the web app (next build).
+    // The first run on a clean clone also builds both the API and the web app.
     timeout: 300_000,
     reuseExistingServer: !process.env.CI,
     stdout: "pipe",

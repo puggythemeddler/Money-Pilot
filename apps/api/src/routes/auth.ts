@@ -318,10 +318,15 @@ auth.get("/auth/me", async (c) => {
   const req = c.req.raw;
   try {
     const context = await requireUser(req);
+    const profile = await prisma.userProfile.findUnique({
+      where: { userId: context.user.id },
+      select: { financialMonthStartDay: true },
+    });
     return ok({
       user: toPublicUser(context.user),
       sessionId: context.sessionId,
       deviceId: context.deviceId,
+      profile: { financialMonthStartDay: profile?.financialMonthStartDay ?? 1 },
     });
   } catch (err) {
     return fail(err, requestId);

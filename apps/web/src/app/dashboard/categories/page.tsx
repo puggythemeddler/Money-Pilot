@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
-import { listCategories } from "@/lib/finance/categories";
-import { CategoriesManager } from "@/components/finance/CategoriesManager";
+import { getServerUser, serverFetch } from "@/lib/server-api";
+import { CategoriesManager, type CategoryRow } from "@/components/finance/CategoriesManager";
 
 export const metadata: Metadata = {
   title: "Categories",
@@ -10,10 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default async function CategoriesPage() {
-  const auth = await getAuthContext();
+  const auth = await getServerUser();
   if (!auth) redirect("/login");
 
-  const categories = await listCategories(auth.user.id, { includeArchived: true });
+  const { categories } = await serverFetch<{ categories: CategoryRow[] }>("/api/categories?archived=true");
 
   return (
     <div className="space-y-6">

@@ -1,8 +1,10 @@
 # @moneypilot/e2e
 
-Playwright browser e2e suite for the Money Pilot web app (Chromium, 18
+Playwright browser e2e suite for the Money Pilot app (Chromium, 23
 tests): the critical user paths — auth and session protection, accounts,
-transactions, transfers, and dashboard aggregation.
+transactions, transfers, dashboard aggregation, and households — run against
+the real production topology (web app + standalone API behind the `/api/*`
+proxy).
 
 ## Run
 
@@ -12,8 +14,8 @@ From the repo root:
 npm run e2e
 ```
 
-Every run rebuilds the web app first (the served production build must match
-the current source tree — a stale `.next` would 404 newly added routes).
+Every run rebuilds both apps first (the served production builds must match
+the current source tree — a stale build would 404 newly added routes).
 Install the browser binary once, inside this folder:
 
 ```sh
@@ -22,17 +24,22 @@ npx playwright install chromium
 
 ## How it works
 
-- Playwright boots a disposable **production** server as its `webServer`
-  (`apps/web/scripts/e2e-server.mjs`):
+- Playwright boots a disposable **production** stack as its `webServer`
+  (`apps/e2e/scripts/e2e-server.mjs`):
   - deletes and recreates a fresh SQLite database
-    (`apps/web/prisma/e2e-playwright.db`) and pushes the schema
+    (`apps/api/prisma/e2e-playwright.db`) and pushes the schema
     (regenerating the SQLite client);
-  - runs `next start -p 3105` with `NODE_ENV=production`,
-    `APP_BASE_URL=http://localhost:3105`, a throwaway random
-    `AUTH_JWT_SECRET`, and a raised `RATE_LIMIT_AUTH_MAX` (the suite
-    registers/logs in far more often per minute than a real visitor — the
-    production default stays untouched);
-  - readiness is polled at `/api/health`.
+  - builds and starts the API (`node dist/server.js`) on :4000 with
+    `NODE_ENV=production`, `APP_BASE_URL=http://localhost:3105`,
+    `ALLOWED_ORIGINS=http://localhost:3105` (the web origin — behind the
+    proxy the browser's Origin is the web app's, not the API's own host), a
+    throwaway random `AUTH_JWT_SECRET`, and a raised `RATE_LIMIT_AUTH_MAX`
+    (the suite registers/logs in far more often per minute than a real
+    visitor — the production default stays untouched);
+  - waits for the API's health endpoint, then builds and starts the web app
+    (`next start -p 3105`) proxying `/api/*` to it;
+  - readiness is polled at `http://localhost:3105/api/health` — through
+    the proxy, proving the whole chain (web up, rewrite wired, API up).
 - The server is **self-contained: no `.env` is needed** (verified on CI by
   running the suite with no `.env` present at all).
 - Every test registers its own user (`uniqueEmail`), so tests share nothing

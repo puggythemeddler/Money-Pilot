@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { getAuthContext } from "@/lib/auth";
+import { getServerUser } from "@/lib/server-api";
 import { BottomNav, Sidebar } from "@/components/AppNav";
 
 export const metadata: Metadata = {
@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const auth = await getAuthContext();
+  const auth = await getServerUser();
   if (!auth) redirect("/login");
 
   return (

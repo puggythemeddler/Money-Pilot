@@ -1,3 +1,0 @@
-# Prisma migration history is PostgreSQL (production).
-# Local dev/e2e use db push against schema.sqlite.prisma instead.
-provider = "postgresql"

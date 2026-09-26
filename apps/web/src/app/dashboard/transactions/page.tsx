@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { transactionQuerySchema } from "@moneypilot/shared";
-import { getAuthContext } from "@/lib/auth";
-import { listAccounts } from "@/lib/finance/accounts";
-import { listCategories } from "@/lib/finance/categories";
-import { listTransactions } from "@/lib/finance/transactions";
-import { TransactionsManager } from "@/components/finance/TransactionsManager";
+import { getServerUser, serverFetch } from "@/lib/server-api";
+import type { AccountRow } from "@/components/finance/AccountsManager";
+import type { CategoryRow } from "@/components/finance/CategoriesManager";
+import {
+  TransactionsManager,
+  type TransactionItem,
+} from "@/components/finance/TransactionsManager";
 
 export const metadata: Metadata = {
   title: "Transactions",
@@ -17,7 +19,7 @@ interface PageProps {
 }
 
 export default async function TransactionsPage({ searchParams }: PageProps) {
-  const auth = await getAuthContext();
+  const auth = await getServerUser();
   if (!auth) redirect("/login");
 
   const sp = await searchParams;
@@ -28,19 +30,27 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   });
   const query = parsed.success ? parsed.data : transactionQuerySchema.parse({});
 
+  const params = new URLSearchParams();
+  if (query.kind) params.set("kind", query.kind);
+  if (query.accountId) params.set("account", query.accountId);
+  if (query.q) params.set("q", query.q);
+  const qs = params.toString();
+
   const [result, accounts, categories] = await Promise.all([
-    listTransactions(auth.user.id, query),
-    listAccounts(auth.user.id, false),
-    listCategories(auth.user.id, {}),
+    serverFetch<{ items: TransactionItem[]; pagination: { total: number } }>(
+      `/api/transactions${qs ? `?${qs}` : ""}`,
+    ),
+    serverFetch<{ accounts: AccountRow[] }>("/api/accounts"),
+    serverFetch<{ categories: CategoryRow[] }>("/api/categories"),
   ]);
 
-  const accountOptions = accounts.map((a) => ({
+  const accountOptions = accounts.accounts.map((a) => ({
     id: a.id,
     name: a.name,
     currency: a.currency,
     shared: a.shared,
   }));
-  const categoryOptions = categories.map((c) => ({ id: c.id, name: c.name, color: c.color, kind: c.kind }));
+  const categoryOptions = categories.categories.map((c) => ({ id: c.id, name: c.name, color: c.color, kind: c.kind }));
 
   return (
     <div className="space-y-6">

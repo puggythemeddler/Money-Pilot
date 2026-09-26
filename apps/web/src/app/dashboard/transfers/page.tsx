@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
-import { listAccounts } from "@/lib/finance/accounts";
-import { listTransfers } from "@/lib/finance/transfers";
-import { TransfersManager } from "@/components/finance/TransfersManager";
+import { getServerUser, serverFetch } from "@/lib/server-api";
+import type { AccountRow } from "@/components/finance/AccountsManager";
+import { TransfersManager, type TransferItem } from "@/components/finance/TransfersManager";
 
 export const metadata: Metadata = {
   title: "Transfers",
@@ -11,12 +10,12 @@ export const metadata: Metadata = {
 };
 
 export default async function TransfersPage() {
-  const auth = await getAuthContext();
+  const auth = await getServerUser();
   if (!auth) redirect("/login");
 
   const [transfers, accounts] = await Promise.all([
-    listTransfers(auth.user.id),
-    listAccounts(auth.user.id, false),
+    serverFetch<{ transfers: TransferItem[] }>("/api/transfers"),
+    serverFetch<{ accounts: AccountRow[] }>("/api/accounts"),
   ]);
 
   return (
@@ -26,8 +25,8 @@ export default async function TransfersPage() {
         <p className="text-sm text-slate-500">Moving money between your own accounts.</p>
       </header>
       <TransfersManager
-        transfers={transfers}
-        accounts={accounts.map((a) => ({ id: a.id, name: a.name, currency: a.currency }))}
+        transfers={transfers.transfers}
+        accounts={accounts.accounts.map((a) => ({ id: a.id, name: a.name, currency: a.currency }))}
       />
     </div>
   );

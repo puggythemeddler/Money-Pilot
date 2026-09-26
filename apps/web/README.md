@@ -1,112 +1,71 @@
 # @moneypilot/web
 
-The Money Pilot application: Next.js (App Router) UI and API route handlers in
-one service, plus the finance domain services. See the
-[root README](../../README.md) for the product overview, security model, and
-[DESIGN.md](../../DESIGN.md) for the design system.
+The Money Pilot web app: a frontend-only Next.js (App Router) application.
+All data comes from the standalone MoneyPilot API ([`apps/api`](../api/README.md)):
+client components call the same-origin `/api/*` proxy through `api-client.ts`,
+server components fetch the API directly through `lib/server-api.ts`
+(forwarding the incoming auth cookies). `next.config.ts` proxies every
+`/api/*` request to `MONEYPILOT_API_ORIGIN` — same-origin for the browser,
+so auth cookies never need CORS and the API enforces CSRF itself. See the
+[root README](../../README.md) for the product overview and security model,
+and [DESIGN.md](../../DESIGN.md) for the design system.
 
 ## Quick start
 
-From the repo root:
+From the repo root (the API must be running on :4000 — see
+[`apps/api/README.md`](../api/README.md)):
 
 ```sh
-npm install              # postinstall generates the SQLite Prisma client
+npm install
 cd apps/web
-npm run db:dev           # creates prisma/dev.db and pushes the schema
-cp .env.example .env     # set AUTH_JWT_SECRET (see the root README)
+cp .env.example .env     # MONEYPILOT_API_ORIGIN (defaults to http://localhost:4000)
 npm run dev              # http://localhost:3000
 ```
 
-Local development runs against the generated SQLite twin — no PostgreSQL
-needed. To develop against PostgreSQL instead, point `DATABASE_URL` at a
-Postgres instance and run `npm run db:migrate` against the canonical schema.
-
 ## Scripts
 
-| Script                       | What it does                                                  |
-| ---------------------------- | ------------------------------------------------------------- |
-| `npm run dev`                | `next dev` on :3000                                           |
-| `npm run build`              | Production build (`next build`)                               |
-| `npm run start`              | `next start` (production server; binds `$PORT`)                |
-| `npm run lint` / `typecheck` | ESLint / `tsc --noEmit`                                        |
-| `npm run db:dev`             | Generate the SQLite client + create/push `prisma/dev.db`       |
-| `npm run db:schema:sqlite`   | Regenerate the SQLite twin (after every canonical schema change) |
-| `npm run db:migrate`         | `prisma migrate dev` (PostgreSQL development migrations)       |
-| `npm run db:deploy`          | `prisma migrate deploy` (production; Render runs this pre-deploy) |
-| `npm run db:generate`        | Generate the canonical PostgreSQL client                       |
-| `npm run db:studio`          | Prisma Studio                                                  |
-
-## The two schemas
-
-- `prisma/schema.prisma` — the **canonical** schema (PostgreSQL). The
-  migrations under `prisma/migrations` are PostgreSQL-only and are what
-  production runs (`prisma migrate deploy`; never `migrate dev` there).
-- `prisma/schema.sqlite.prisma` — a **generated** twin (SQLite) for local dev
-  and e2e. Never edit it by hand: change the canonical schema, then run
-  `npm run db:schema:sqlite`. Generating it from the canonical schema is what
-  keeps the two from drifting.
-
-Client generation order matters: `postinstall` generates the SQLite client so
-a fresh clone is instantly runnable; CI and the production build run
-`npx prisma generate` (canonical client) before `next build`; the e2e server
-flips the client back to SQLite before booting the app.
+| Script                       | What it does                       |
+| ---------------------------- | ---------------------------------- |
+| `npm run dev`                | `next dev` on :3000                |
+| `npm run build`              | Production build (`next build`)    |
+| `npm run start`              | `next start` (binds `$PORT`)       |
+| `npm run lint` / `typecheck` | ESLint / `tsc --noEmit`            |
 
 ## Layout
 
 ```
 src/
-  app/                     App Router pages + API route handlers
-    api/auth/…             login, register, refresh, logout(-all), devices,
-                           verify-email, forgot/reset-password, me
-    api/accounts|categories|transactions|transfers|
-       budgets|debts|bills|dashboard|household/
-                            finance endpoints (see the root README API table)
-    api/admin/…            invitations + user list (ADMIN role only)
-    api/users/…            data export, account deletion
-    api/health             unauthenticated health probe (Render + e2e)
+  app/                     App Router pages ((auth) flows + dashboard)
   lib/
-    auth.ts, sessions.ts, tokens.ts, jwt.ts, password.ts, cookies.ts
-                            session auth: bcrypt, 15-min HMAC access JWTs,
-                            opaque rotating refresh tokens, __Host- cookies
-    rateLimit.ts           in-memory per-IP auth rate limiting
-    env.ts                 central env config + production guards
-    api.ts                 route-handler helpers (ok/fail, zod validation,
-                           request ids; errors never leak internals)
-    finance/               domain services — every query is scoped to what
-                           the acting user may see, every write lands in the
-                           audit log: accounts, transactions, transfers,
-                           budgets, debts, bills, categories, dashboard,
-                           balances (derived, never stored), dates
-    finance/households.ts  households: the single visibility choke point
-                           (resolveAccountForUser / visibleAccountWhere) used
-                           by every finance service, plus household lifecycle,
-                           invites (digest-stored), permissions, joint accounts,
-                           and the aggregated household overview
-    audit.ts               audit-log writer
-    mail.ts / email.ts     SMTP with console fallback
+    api-client.ts          client-side same-origin /api/* fetch wrapper
+    server-api.ts          serverFetch: server components call the API with
+                           the incoming request's cookies (401 → /login at
+                           the call sites); ServerApiError keeps the shared
+                           error contract (code, status, requestId)
+    device-key.ts          per-device client key material (device names)
+    cn.ts                  className helper
   components/              UI (finance managers, household manager + invite
                            accept, auth forms, nav, primitives)
-  middleware.ts            auth gate + CSRF origin check + security headers
-scripts/
-  make-sqlite-schema.mjs    generates the SQLite twin
-  check-prod-env.mjs        production env validation (Render pre-deploy)
-  bootstrap-admin.mjs      idempotent first-admin bootstrap (private mode)
-  e2e-server.mjs            disposable production server for the e2e suite
+  middleware.ts            CSRF origin check + security headers (defense in
+                           depth: the API re-checks Origin itself)
+next.config.ts             /api/* → MONEYPILOT_API_ORIGIN proxy rewrites
 ```
 
 ## Environment
 
-All variables (with defaults) are documented in the
-[root README](../../README.md#environment-variables) and `.env.example`.
+| Variable                | Meaning                             | Default                  |
+| ----------------------- | ----------------------------------- | ------------------------ |
+| `MONEYPILOT_API_ORIGIN` | API origin `/api/*` is proxied to   | `http://localhost:4000` |
 
 ## Testing
 
-The Playwright suite in [`apps/e2e`](../e2e/README.md) boots this app in
-production mode against a fresh SQLite database — run `npm run e2e` from the
-repo root.
+The Playwright suite in [`apps/e2e`](../e2e/README.md) boots this app plus a
+fresh instance of the API and runs the critical user paths through the proxy —
+run `npm run e2e` from the repo root.
 
 ## Production
 
-Deployed as a single Render service via the Blueprint in `render.yaml`
-(pre-deploy: env check + `prisma migrate deploy`). Full guide:
-[docs/deployment.md](../../docs/deployment.md).
+Deployed to Vercel (frontend-only): set `MONEYPILOT_API_ORIGIN` to the API
+service's https origin so `/api/*` proxies to it. The API service contract
+and its deployment are documented in [`apps/api/README.md`](../api/README.md)
+and [docs/deployment.md](../../docs/deployment.md).

@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
-import { prisma } from "@/lib/db";
-import { listDevicesForUser } from "@/lib/devices";
+import { getServerUser, serverFetch } from "@/lib/server-api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DevicesSection, type SettingsDevice } from "@/components/settings/DevicesSection";
 import { ProfileForm } from "@/components/settings/ProfileForm";
@@ -14,22 +12,10 @@ export const metadata: Metadata = {
 };
 
 export default async function SettingsPage() {
-  const auth = await getAuthContext();
+  const auth = await getServerUser();
   if (!auth) redirect("/login");
 
-  const [profile, devices] = await Promise.all([
-    prisma.userProfile.findUnique({ where: { userId: auth.user.id } }),
-    listDevicesForUser(auth.user.id),
-  ]);
-
-  const serializedDevices: SettingsDevice[] = devices.map((d) => ({
-    id: d.id,
-    name: d.name,
-    platform: d.platform,
-    lastSeenAt: d.lastSeenAt.toISOString(),
-    activeSessions: d._count.sessions,
-    isCurrent: d.id === auth.deviceId,
-  }));
+  const { devices } = await serverFetch<{ devices: SettingsDevice[] }>("/api/auth/devices");
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -50,7 +36,7 @@ export default async function SettingsPage() {
               email: auth.user.email,
               preferredCurrency: auth.user.preferredCurrency,
               timezone: auth.user.timezone,
-              financialMonthStartDay: profile?.financialMonthStartDay ?? 1,
+              financialMonthStartDay: auth.profile.financialMonthStartDay,
             }}
           />
         </CardContent>
@@ -58,20 +44,20 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Devices & sessions</CardTitle>
+          <CardTitle>Devices &amp; sessions</CardTitle>
           <CardDescription>
             Every browser or handset signed in to this account. Revoking a device signs it out
             immediately.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <DevicesSection initialDevices={serializedDevices} />
+          <DevicesSection initialDevices={devices} />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Data & privacy</CardTitle>
+          <CardTitle>Data &amp; privacy</CardTitle>
           <CardDescription>
             Export everything this account has, or delete the account entirely.
           </CardDescription>

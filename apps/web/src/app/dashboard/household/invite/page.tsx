@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
+import { getServerUser } from "@/lib/server-api";
 import { InviteAcceptForm } from "@/components/household/InviteAcceptForm";
 
 export const metadata: Metadata = {
@@ -13,7 +13,7 @@ interface PageProps {
 }
 
 export default async function HouseholdInvitePage({ searchParams }: PageProps) {
-  const auth = await getAuthContext();
+  const auth = await getServerUser();
   if (!auth) redirect("/login");
 
   const sp = await searchParams;

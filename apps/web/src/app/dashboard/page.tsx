@@ -1,18 +1,42 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatMoney } from "@moneypilot/shared";
-import { getAuthContext } from "@/lib/auth";
-import { dashboardSummary } from "@/lib/finance/dashboard";
+import { getServerUser, serverFetch } from "@/lib/server-api";
 import { ResendVerification } from "@/components/ResendVerification";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Icons } from "@/components/Logo";
 
+interface DashboardSummary {
+  availableMinor: number;
+  month: { incomeMinor: number; expenseMinor: number; netMinor: number };
+  allTime: { incomeMinor: number; expenseMinor: number };
+  household: { name: string } | null;
+  accounts: { id: string; name: string; currency: string; balanceMinor: number }[];
+  categorySpending: {
+    categoryId: string | null;
+    categoryName: string;
+    color: string;
+    amountMinor: number;
+  }[];
+  recentTransactions: {
+    id: string;
+    description: string | null;
+    kind: string;
+    categoryName: string | null;
+    categoryColor: string | null;
+    accountName: string;
+    transactionDate: string;
+    amountMinor: number;
+    currency: string;
+  }[];
+}
+
 export default async function DashboardPage() {
-  const auth = await getAuthContext();
+  const auth = await getServerUser();
   if (!auth) redirect("/login");
 
-  const summary = await dashboardSummary(auth.user.id);
+  const summary = await serverFetch<DashboardSummary>("/api/dashboard");
   const firstName = auth.user.name.split(" ")[0] ?? auth.user.name;
   const currency = auth.user.preferredCurrency;
 

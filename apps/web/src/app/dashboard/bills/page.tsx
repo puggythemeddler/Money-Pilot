@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
-import { listAccounts } from "@/lib/finance/accounts";
-import { listCategories } from "@/lib/finance/categories";
-import { listBills } from "@/lib/finance/bills";
-import { BillsManager } from "@/components/finance/BillsManager";
+import { getServerUser, serverFetch } from "@/lib/server-api";
+import type { AccountRow } from "@/components/finance/AccountsManager";
+import type { CategoryRow } from "@/components/finance/CategoriesManager";
+import { BillsManager, type BillItem } from "@/components/finance/BillsManager";
 
 export const metadata: Metadata = {
   title: "Bills",
@@ -12,13 +11,13 @@ export const metadata: Metadata = {
 };
 
 export default async function BillsPage() {
-  const auth = await getAuthContext();
+  const auth = await getServerUser();
   if (!auth) redirect("/login");
 
   const [bills, categories, accounts] = await Promise.all([
-    listBills(auth.user.id),
-    listCategories(auth.user.id),
-    listAccounts(auth.user.id, false),
+    serverFetch<{ bills: BillItem[] }>("/api/bills"),
+    serverFetch<{ categories: CategoryRow[] }>("/api/categories"),
+    serverFetch<{ accounts: AccountRow[] }>("/api/accounts"),
   ]);
 
   return (
@@ -28,9 +27,9 @@ export default async function BillsPage() {
         <p className="text-sm text-slate-500">Track recurring monthly bills and record payments in one tap.</p>
       </header>
       <BillsManager
-        bills={bills}
-        categories={categories.map((c) => ({ id: c.id, name: c.name, color: c.color, kind: c.kind }))}
-        accounts={accounts.map((a) => ({ id: a.id, name: a.name, currency: a.currency }))}
+        bills={bills.bills}
+        categories={categories.categories.map((c) => ({ id: c.id, name: c.name, color: c.color, kind: c.kind }))}
+        accounts={accounts.accounts.map((a) => ({ id: a.id, name: a.name, currency: a.currency }))}
       />
     </div>
   );

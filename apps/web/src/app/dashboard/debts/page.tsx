@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
-import { listCategories } from "@/lib/finance/categories";
-import { listDebts } from "@/lib/finance/debts";
-import { DebtsManager } from "@/components/finance/DebtsManager";
+import { getServerUser, serverFetch } from "@/lib/server-api";
+import type { CategoryRow } from "@/components/finance/CategoriesManager";
+import { DebtsManager, type DebtItem } from "@/components/finance/DebtsManager";
 
 export const metadata: Metadata = {
   title: "Debts",
@@ -11,12 +10,12 @@ export const metadata: Metadata = {
 };
 
 export default async function DebtsPage() {
-  const auth = await getAuthContext();
+  const auth = await getServerUser();
   if (!auth) redirect("/login");
 
   const [debts, categories] = await Promise.all([
-    listDebts(auth.user.id),
-    listCategories(auth.user.id),
+    serverFetch<{ debts: DebtItem[] }>("/api/debts"),
+    serverFetch<{ categories: CategoryRow[] }>("/api/categories"),
   ]);
 
   return (
@@ -26,8 +25,8 @@ export default async function DebtsPage() {
         <p className="text-sm text-slate-500">Track what you owe and how much of it is paid off.</p>
       </header>
       <DebtsManager
-        debts={debts}
-        categories={categories.map((c) => ({ id: c.id, name: c.name, color: c.color, kind: c.kind }))}
+        debts={debts.debts}
+        categories={categories.categories.map((c) => ({ id: c.id, name: c.name, color: c.color, kind: c.kind }))}
       />
     </div>
   );

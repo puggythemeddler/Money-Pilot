@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { MoneyPilotLogo, Icons } from "@/components/Logo";
 import { LogoutButton } from "@/components/LogoutButton";
-import type { AuthUser } from "@/lib/auth";
+import type { AuthUser } from "@moneypilot/shared";
 
 const realNav = [
   { href: "/dashboard", label: "Overview", icon: Icons.dashboard },

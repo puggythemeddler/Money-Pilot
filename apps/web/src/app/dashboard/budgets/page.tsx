@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
-import { listCategories } from "@/lib/finance/categories";
-import { listBudgets } from "@/lib/finance/budgets";
-import { BudgetsManager } from "@/components/finance/BudgetsManager";
+import { getServerUser, serverFetch } from "@/lib/server-api";
+import type { CategoryRow } from "@/components/finance/CategoriesManager";
+import { BudgetsManager, type BudgetItem } from "@/components/finance/BudgetsManager";
 
 export const metadata: Metadata = {
   title: "Budgets",
@@ -11,12 +10,12 @@ export const metadata: Metadata = {
 };
 
 export default async function BudgetsPage() {
-  const auth = await getAuthContext();
+  const auth = await getServerUser();
   if (!auth) redirect("/login");
 
   const [budgets, categories] = await Promise.all([
-    listBudgets(auth.user.id),
-    listCategories(auth.user.id),
+    serverFetch<{ budgets: BudgetItem[] }>("/api/budgets"),
+    serverFetch<{ categories: CategoryRow[] }>("/api/categories"),
   ]);
 
   return (
@@ -28,8 +27,8 @@ export default async function BudgetsPage() {
         </p>
       </header>
       <BudgetsManager
-        budgets={budgets}
-        categories={categories.map((c) => ({ id: c.id, name: c.name, color: c.color, kind: c.kind }))}
+        budgets={budgets.budgets}
+        categories={categories.categories.map((c) => ({ id: c.id, name: c.name, color: c.color, kind: c.kind }))}
       />
     </div>
   );

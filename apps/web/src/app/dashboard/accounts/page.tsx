@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
-import { listAccounts } from "@/lib/finance/accounts";
-import { AccountsManager } from "@/components/finance/AccountsManager";
+import { getServerUser, serverFetch } from "@/lib/server-api";
+import { AccountsManager, type AccountRow } from "@/components/finance/AccountsManager";
 
 export const metadata: Metadata = {
   title: "Accounts",
@@ -10,10 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default async function AccountsPage() {
-  const auth = await getAuthContext();
+  const auth = await getServerUser();
   if (!auth) redirect("/login");
 
-  const accounts = await listAccounts(auth.user.id, true);
+  const { accounts } = await serverFetch<{ accounts: AccountRow[] }>("/api/accounts?archived=true");
 
   return (
     <div className="space-y-6">

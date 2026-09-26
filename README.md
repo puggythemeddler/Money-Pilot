@@ -96,35 +96,40 @@ add **joint accounts** that every member sees, with per-member permissions:
 ## Repository layout
 
 ```
-apps/web          Next.js application (UI + API routes) — see apps/web/README.md
+apps/api           Standalone MoneyPilot backend (Hono) — see apps/api/README.md
   prisma/schema.prisma        Canonical PostgreSQL schema (production migrations)
   prisma/schema.sqlite.prisma Generated SQLite twin (local dev + e2e; regenerate via db:schema:sqlite)
-  scripts/                   db twin generator, prod env check, e2e server, admin bootstrap
+  scripts/                   db twin generator, prod env check, admin bootstrap
   src/lib/finance     Financial domain services (ownership + audit on every write)
   src/lib/finance/households.ts  Household/membership resolver — the single choke point
                       for account visibility across all finance services
-  src/app/api/…       Route handlers: auth, accounts, categories, transactions, transfers,
+  src/routes/…        Route handlers: auth, accounts, categories, transactions, transfers,
                       budgets, debts, bills, dashboard, household, admin, users
+apps/web           Next.js application (UI only) — see apps/web/README.md
+  src/lib/server-api.ts      Server components fetch the API, forwarding auth cookies
+  next.config.ts     /api/* proxied, same-origin, to the MoneyPilot API service
 apps/e2e          Playwright browser e2e suite (Chromium) — see apps/e2e/README.md
 packages/shared   Shared domain rules: money (minor units), currency, FX, zod schemas,
                   error contract — see packages/shared/README.md
 scripts/audit.mjs Dependency-audit CI gate (npm audit + reviewed allowlist)
 security/semgrep-rules.yml  Custom static-analysis security rules (clean on main)
 DESIGN.md         Design system guide (tokens, primitives, financial-UI rules)
-docs/deployment.md  Render + Neon production deployment guide
-render.yaml     Render Blueprint (web service + health check + pre-deploy migrations)
+docs/deployment.md  Production deployment guide (being updated for the api/web split)
+render.yaml     Render Blueprint (being updated for the api/web split)
 .github/workflows/ci.yml   CI: lint, typecheck, unit tests, build, e2e, audit, Semgrep
 .github/workflows/snyk.yml Optional Snyk scan (runs only with a SNYK_TOKEN secret)
 ```
 
 ## Production deployment
 
-GitHub → **Render** (the full Next.js app: UI + API in one service, so no CORS
-surface and same-origin cookies) → **Neon PostgreSQL**. Deploy with the
-Blueprint in `render.yaml`: pre-deploy checks the required environment
-variables and runs `prisma migrate deploy` (never `migrate dev` against
-production). Full instructions: **[docs/deployment.md](docs/deployment.md)**
-(Neon setup, Render blueprint, smoke test, backups/recovery, custom domains).
+Target topology: GitHub → **Vercel** (`apps/web`, frontend-only) + **Render**
+(`apps/api`, the standalone Hono backend) → **Neon PostgreSQL**. The web app
+proxies every `/api/*` request, same-origin, to the API service — no CORS
+surface and same-origin cookies. Required environment, service setup and the
+post-deploy smoke test are documented in
+**[docs/deployment.md](docs/deployment.md)** (currently being updated for the
+split; the API service contract is fully documented in
+`apps/api/README.md`).
 
 ## Getting started
 
@@ -136,60 +141,64 @@ Requirements: Node.js 20+ (developed on 24), npm.
    npm install
    ```
 
-2. Prepare the local database (SQLite twin — zero-install):
+2. Prepare the local database (SQLite twin — zero-install, in `apps/api`):
 
    ```sh
-   cd apps/web
-   npm run db:dev
+   npm run db:dev --workspace @moneypilot/api
    ```
 
-   `db:dev` generates the SQLite client from `prisma/schema.sqlite.prisma` and
-   creates `prisma/dev.db`. (Developing against PostgreSQL instead is also
-   supported: point `DATABASE_URL` at a Postgres instance and run
+   `db:dev` generates the SQLite client from `apps/api/prisma/schema.sqlite.prisma`
+   and creates `apps/api/prisma/dev.db`. (Developing against PostgreSQL instead is
+   also supported: point `DATABASE_URL` at a Postgres instance and run
    `npx prisma migrate dev` against the canonical schema.)
 
 3. Configure environment variables:
 
    ```sh
+   cp apps/api/.env.example apps/api/.env
    cp apps/web/.env.example apps/web/.env
    ```
 
-   At minimum set `AUTH_JWT_SECRET` to a strong random value:
+   At minimum set `AUTH_JWT_SECRET` (in `apps/api/.env`) to a strong random value:
 
    ```sh
    node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
    ```
 
-4. Start the development server:
+4. Start the development servers (the API on :4000 and the web app on :3000):
 
    ```sh
    npm run dev        # from the repo root
    ```
 
-   Open http://localhost:3000.
+   Open http://localhost:3000. The web app proxies `/api/*` to the API
+   (`MONEYPILOT_API_ORIGIN` in `apps/web/.env`).
 
 ## Environment variables
 
-All live under `apps/web/.env` (see `apps/web/.env.example`).
+Backend variables live in `apps/api/.env` (see `apps/api/.env.example`); the
+frontend-only web app has a single variable in `apps/web/.env`.
 
-| Variable                       | Meaning                                                        | Default            |
-| ------------------------------ | -------------------------------------------------------------- | ------------------ |
-| `DATABASE_URL`                 | Prisma database URL (`file:./dev.db` for SQLite)               | —                  |
-| `APP_BASE_URL`                 | Public base URL used to build email links and validate origins | `http://localhost:3000` |
-| `AUTH_JWT_SECRET`              | HMAC secret for access tokens (48+ random bytes recommended)   | —                  |
-| `AUTH_REFRESH_TTL_DAYS`        | Refresh-token lifetime in days                                 | `30`               |
-| `PRIVATE_MODE`                 | `true` = invite-only registration                              | `false`            |
-| `SEED_ADMIN_EMAIL`             | Bootstrap admin email (read by the bootstrap script)           | —                  |
-| `SEED_ADMIN_PASSWORD`          | Password for the bootstrap admin account                       | —                  |
-| `RATE_LIMIT_AUTH_MAX`          | Auth request cap per IP per window                             | `20`               |
-| `RATE_LIMIT_AUTH_WINDOW_SECONDS` | Auth rate-limit window                                          | `60`               |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` | SMTP for email delivery; falls back to console | — |
+| Variable                       | Where | Meaning                                                        | Default            |
+| ------------------------------ | ----- | -------------------------------------------------------------- | ------------------ |
+| `DATABASE_URL`                 | api   | Prisma database URL (`file:./dev.db` for SQLite)               | —                  |
+| `APP_BASE_URL`                 | api   | Public web URL used to build email links and validate origins  | `http://localhost:3000` |
+| `AUTH_JWT_SECRET`              | api   | HMAC secret for access tokens (48+ random bytes recommended)   | —                  |
+| `AUTH_REFRESH_TTL_DAYS`        | api   | Refresh-token lifetime in days                                 | `30`               |
+| `PRIVATE_MODE`                 | api   | `true` = invite-only registration                              | `false`            |
+| `SEED_ADMIN_EMAIL`             | api   | Bootstrap admin email (read by the bootstrap script)           | —                  |
+| `SEED_ADMIN_PASSWORD`          | api   | Password for the bootstrap admin account                       | —                  |
+| `RATE_LIMIT_AUTH_MAX`          | api   | Auth request cap per IP per window                             | `20`               |
+| `RATE_LIMIT_AUTH_WINDOW_SECONDS` | api | Auth rate-limit window                                         | `60`               |
+| `ALLOWED_ORIGINS`              | api   | Comma-separated extra origins accepted by the CSRF check      | —                  |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` | api | SMTP for email delivery; falls back to console | — |
+| `MONEYPILOT_API_ORIGIN`        | web   | API origin that `/api/*` is proxied to                         | `http://localhost:4000` |
 
 In invite-only mode (`PRIVATE_MODE=true`) no one can register without an invitation, so a
 private deployment needs a first administrator. Bootstrap it once as a separate step:
 
 ```sh
-cd apps/web
+cd apps/api
 $env:SEED_ADMIN_EMAIL="admin@example.com"     # or export in your shell
 $env:SEED_ADMIN_PASSWORD="a-strong-password"
 node scripts/bootstrap-admin.mjs
@@ -215,11 +224,12 @@ and can be re-run — subsequent runs are a no-op.
 - **Session validation at request time**: every authenticated request cross-checks the session
   row and device (revoked, expired, ownership) — logout, device revoke, and logout-all take
   effect immediately, not when a token happens to expire.
-- **CSRF**: unsafe cross-origin POST/PUT/PATCH/DELETE requests are rejected unless the Origin
-  matches the request's `Host`/`X-Forwarded-Host` (Next.js ≥ 15.5 pins the middleware URL to
-  `http://localhost` under `next start`, so the check compares request headers rather than
-  `req.nextUrl.origin`). Security headers (X-Content-Type-Options, Referrer-Policy,
-  X-Frame-Options, Permissions-Policy, HSTS behind TLS proxies) are set on every response.
+- **CSRF (two layers)**: unsafe cross-origin POST/PUT/PATCH/DELETE requests are rejected unless
+  the Origin matches the request's `Host`/`X-Forwarded-Host` — in the Next.js web middleware
+  (defense in depth) and again in the API (`Host`/`X-Forwarded-Host` plus `APP_BASE_URL` and the
+  `ALLOWED_ORIGINS` list, since behind the proxy the Origin is the web app's origin). Security
+  headers (X-Content-Type-Options, Referrer-Policy, X-Frame-Options, Permissions-Policy, HSTS
+  behind TLS proxies) are set on every response.
 - **Roles & lifecycle**: admin routes require the `ADMIN` role; deleted/disabled accounts cannot
   authenticate. Invitation tokens are stored only as digests and are single-use.
 - Account deletion anonymizes personal information, revokes every session, and hard-stops
@@ -294,25 +304,26 @@ Only available to `ADMIN` users.
 ## Scripts
 
 ```sh
-npm run dev           # development servers
+npm run dev           # development servers (apps/api :4000 + apps/web :3000)
 npm run build         # production build (all workspaces)
 npm run test          # unit tests (packages/shared)
-npm run e2e           # Playwright browser e2e (apps/e2e; rebuilds the app every run)
+npm run e2e           # Playwright browser e2e (apps/e2e; rebuilds both apps every run)
 npm run lint          # eslint (all workspaces)
 npm run typecheck     # TypeScript checks (all workspaces)
 node scripts/audit.mjs  # dependency audit gate (what CI runs)
 
-# apps/web
-npm run db:dev             # generate SQLite client + create prisma/dev.db (local dev)
-npm run db:schema:sqlite   # regenerate the SQLite twin after a schema change
-npm run db:generate        # generate the canonical PostgreSQL client
-npm run db:deploy          # prisma migrate deploy (production; run by Render pre-deploy)
+# apps/api
+npm run db:dev --workspace @moneypilot/api     # generate SQLite client + create prisma/dev.db
+npm run db:schema:sqlite --workspace @moneypilot/api  # regenerate the SQLite twin
+npm run db:generate --workspace @moneypilot/api # generate the canonical PostgreSQL client
+npm run db:deploy --workspace @moneypilot/api   # prisma migrate deploy (production)
 ```
 
 First e2e run needs the browser binary once: `npx playwright install chromium`
-(run inside `apps/e2e`). The suite boots its own disposable server on
-http://localhost:3105 against a fresh SQLite database — your `dev.db` is never
-touched, and each test registers its own isolated user.
+(run inside `apps/e2e`). The suite boots its own disposable stack — the API on
+http://localhost:4000 against a fresh SQLite database plus the web app on
+http://localhost:3105 proxying to it — your `dev.db` is never touched, and each
+test registers its own isolated user.
 
 ## Verification checklist
 

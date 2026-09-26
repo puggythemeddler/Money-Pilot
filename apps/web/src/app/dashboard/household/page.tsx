@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/auth";
-import { getHouseholdOverview, getHouseholdView } from "@/lib/finance/households";
-import { HouseholdManager } from "@/components/household/HouseholdManager";
+import { getServerUser, serverFetch } from "@/lib/server-api";
+import {
+  HouseholdManager,
+  type HouseholdOverview,
+  type HouseholdView,
+} from "@/components/household/HouseholdManager";
 
 export const metadata: Metadata = {
   title: "Household",
@@ -10,12 +13,12 @@ export const metadata: Metadata = {
 };
 
 export default async function HouseholdPage() {
-  const auth = await getAuthContext();
+  const auth = await getServerUser();
   if (!auth) redirect("/login");
 
   const [household, overview] = await Promise.all([
-    getHouseholdView(auth.user.id),
-    getHouseholdOverview(auth.user.id),
+    serverFetch<{ household: HouseholdView | null }>("/api/household"),
+    serverFetch<{ overview: HouseholdOverview }>("/api/household/overview"),
   ]);
 
   return (
@@ -28,8 +31,8 @@ export default async function HouseholdPage() {
         </p>
       </header>
       <HouseholdManager
-        household={household}
-        overview={overview}
+        household={household.household}
+        overview={overview.overview}
         displayCurrency={auth.user.preferredCurrency}
       />
     </div>
