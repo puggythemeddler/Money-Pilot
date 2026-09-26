@@ -24,8 +24,8 @@ rules:
       - pattern: $P.$executeRawUnsafe(...)
     paths:
       include:
-        - "apps/**"
-        - "packages/**"
+        - "**/apps/**"
+        - "**/packages/**"
 
   - id: moneypilot.no-dangerously-set-inner-html
     # Text-level match on purpose: the attribute can appear in JSX where AST
@@ -38,8 +38,8 @@ rules:
     pattern-regex: dangerouslySetInnerHTML
     paths:
       include:
-        - "apps/**"
-        - "packages/**"
+        - "**/apps/**"
+        - "**/packages/**"
         - "*.tsx"
         - "*.ts"
 
@@ -54,8 +54,8 @@ rules:
       - pattern: new Function(...)
     paths:
       include:
-        - "apps/**"
-        - "packages/**"
+        - "**/apps/**"
+        - "**/packages/**"
 
   - id: moneypilot.no-hardcoded-secrets
     languages: [typescript, javascript]
@@ -75,8 +75,8 @@ rules:
           regex: (?i).*(secret|token|password|apikey|api_key|privatekey|private_key)$
     paths:
       include:
-        - "apps/**"
-        - "packages/**"
+        - "**/apps/**"
+        - "**/packages/**"
       exclude:
         - "**/tests/**"
         - "**/*.test.*"

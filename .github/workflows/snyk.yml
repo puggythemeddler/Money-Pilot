@@ -13,17 +13,21 @@ on:
     - cron: "0 6 * * 1" # Mondays 06:00 UTC, catches newly disclosed advisories
   workflow_dispatch:
 
+# The token is mapped at the workflow level on purpose: step-level `if:`
+# conditions need `env.SNYK_TOKEN` to test for presence (the `secrets` context
+# is not usable in `if:`), and this workflow never runs on `pull_request`
+# events, so forked-PR code cannot exfiltrate it.
 env:
-  SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+  SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }} # nosemgrep: gha-workflow-env-secret
 
 jobs:
   snyk:
     name: snyk dependency scan (high and above)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
           cache: npm

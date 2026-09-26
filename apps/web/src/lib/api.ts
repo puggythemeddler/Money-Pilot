@@ -54,7 +54,7 @@ export function logError(context: string, err: unknown, requestId?: string): voi
       console.error(err);
     }
   } else {
-    console.error(`[api:${id}] ${context}:`, err);
+    console.error(`[api:${id}] ${context}:`, err); // nosemgrep: unsafe-formatstring -- fixed template literal, interpolation never lands in a format-specifier position
   }
 }
 
