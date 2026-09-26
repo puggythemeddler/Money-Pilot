@@ -4,6 +4,7 @@ import {
   debtCreateSchema,
   debtUpdateSchema,
   minorToNumber,
+  parseMoneyInputToMinorUnits,
 } from "@moneypilot/shared";
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -105,16 +106,20 @@ export async function createDebt(
   audit: { ip?: string; userAgent?: string },
 ) {
   const category = input.categoryId ? await validateCategory(userId, input.categoryId) : null;
+  const principalMinor = parseMoneyInputToMinorUnits(input.principal, input.currency);
   const debt = await prisma.debt.create({
     data: {
       userId,
       name: input.name,
       type: input.type,
       institution: input.institution ?? null,
-      principalMinor: input.principal,
+      principalMinor,
       currency: input.currency,
       interestRate: input.interestRate ?? null,
-      minimumPaymentMinor: input.minimumPayment ?? null,
+      minimumPaymentMinor:
+        input.minimumPayment !== undefined
+          ? parseMoneyInputToMinorUnits(input.minimumPayment, input.currency, { allowZero: true })
+          : null,
       dueDay: input.dueDay ?? null,
       categoryId: category?.id ?? null,
       notes: input.notes ?? null,
@@ -125,7 +130,7 @@ export async function createDebt(
     action: AUDIT_ACTIONS.DEBT_CREATED,
     entityType: "Debt",
     entityId: debt.id,
-    metadata: { name: debt.name, type: debt.type, principalMinor: input.principal, currency: debt.currency },
+    metadata: { name: debt.name, type: debt.type, principalMinor, currency: debt.currency },
     ip: audit.ip,
     userAgent: audit.userAgent,
   });
@@ -146,7 +151,7 @@ export async function updateDebt(
   input: DebtUpdateInput,
   audit: { ip?: string; userAgent?: string },
 ) {
-  await getOwnedDebt(userId, debtId);
+  const existing = await getOwnedDebt(userId, debtId);
   const category = input.categoryId ? await validateCategory(userId, input.categoryId) : undefined;
 
   const data: {
@@ -164,9 +169,14 @@ export async function updateDebt(
   if (input.name !== undefined) data.name = input.name;
   if (input.type !== undefined) data.type = input.type;
   if (input.institution !== undefined) data.institution = input.institution ?? null;
-  if (input.principal !== undefined) data.principalMinor = input.principal;
+  if (input.principal !== undefined) data.principalMinor = parseMoneyInputToMinorUnits(input.principal, existing.currency);
   if (input.interestRate !== undefined) data.interestRate = input.interestRate ?? null;
-  if (input.minimumPayment !== undefined) data.minimumPaymentMinor = input.minimumPayment ?? null;
+  if (input.minimumPayment !== undefined) {
+    data.minimumPaymentMinor =
+      input.minimumPayment !== null && input.minimumPayment !== ""
+        ? parseMoneyInputToMinorUnits(input.minimumPayment, existing.currency, { allowZero: true })
+        : null;
+  }
   if (input.dueDay !== undefined) data.dueDay = input.dueDay ?? null;
   if (input.categoryId !== undefined) data.categoryId = category?.id ?? null;
   if (input.notes !== undefined) data.notes = input.notes ?? null;

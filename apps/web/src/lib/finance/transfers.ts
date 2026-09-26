@@ -6,6 +6,7 @@ import {
   convertMinorUnitsWithRate,
   currencyMinorUnitDigits,
   minorToNumber,
+  parseMoneyInputToMinorUnits,
   parseRateFraction,
 } from "@moneypilot/shared";
 import type { z } from "zod";
@@ -158,10 +159,11 @@ export async function createTransfer(
     );
   }
 
+  const amountMinor = parseMoneyInputToMinorUnits(input.amount, fromAccount.currency);
   const leg = legAmounts({
     fromCurrency: fromAccount.currency,
     toCurrency: toAccount.currency,
-    amountMinor: input.amount,
+    amountMinor,
     rate: input.rate,
   });
 
@@ -175,7 +177,7 @@ export async function createTransfer(
         userId,
         fromAccountId: fromAccount.id,
         toAccountId: toAccount.id,
-        amountMinor: input.amount,
+        amountMinor,
         currency,
         rate: leg.rate,
         transactionDate,
@@ -190,7 +192,7 @@ export async function createTransfer(
           kind: "TRANSFER",
           accountId: fromAccount.id,
           transferId: transfer.id,
-          amountMinor: -input.amount,
+          amountMinor: -amountMinor,
           currency,
           transactionDate,
           description,
@@ -220,7 +222,7 @@ export async function createTransfer(
     entityType: "Transfer",
     entityId: result.transfer.id,
     metadata: {
-      amountMinor: input.amount,
+      amountMinor,
       currency,
       rate: leg.rate,
       toAmountMinor: leg.toAmountMinor,
@@ -237,7 +239,7 @@ export async function createTransfer(
     id: result.transfer.id,
     fromAccountId: fromAccount.id,
     toAccountId: toAccount.id,
-    amountMinor: input.amount,
+    amountMinor,
     currency,
     toAmountMinor: leg.toAmountMinor,
     toCurrency: leg.toCurrency,
@@ -267,7 +269,10 @@ export async function updateTransfer(
 
   const fromAccount = existing.fromAccount;
   const toAccount = existing.toAccount;
-  const amountMinor = input.amount ?? minorToNumber(existing.amountMinor);
+  const amountMinor =
+    input.amount !== undefined
+      ? parseMoneyInputToMinorUnits(input.amount, fromAccount.currency)
+      : minorToNumber(existing.amountMinor);
   const leg = legAmounts({
     fromCurrency: fromAccount.currency,
     toCurrency: toAccount.currency,

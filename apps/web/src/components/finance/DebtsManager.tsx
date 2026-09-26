@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatMoney, fromMinorUnits, parseMoneyToMinorUnits } from "@moneypilot/shared";
+import { CURRENCIES, formatMoney, fromMinorUnits, parseMoneyToMinorUnits } from "@moneypilot/shared";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -95,7 +95,7 @@ export function DebtsManager({ debts, categories }: { debts: DebtItem[]; categor
     setError(null);
     setBusy(true);
     const payload: Record<string, string> = {
-      principal: String(fromMinorUnits(editing.principalMinor, editing.currency === "UGX" ? "KES" : editing.currency)),
+      principal: String(fromMinorUnits(editing.principalMinor, editing.currency)),
     };
     if (editing.name.trim()) payload.name = editing.name.trim();
     if (editing.type) payload.type = editing.type;
@@ -156,10 +156,11 @@ export function DebtsManager({ debts, categories }: { debts: DebtItem[]; categor
             </Field>
             <Field label="Currency" htmlFor="dt-currency">
               <Select id="dt-currency" value={currency} onChange={(e) => setCurrency(e.target.value)}>
-                <option value="KES">KES</option>
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
+                {Object.values(CURRENCIES).map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.code} — {c.name}
+                  </option>
+                ))}
               </Select>
             </Field>
             <Field label="Annual interest (%)" htmlFor="dt-interest">

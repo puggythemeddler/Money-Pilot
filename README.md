@@ -31,6 +31,15 @@ converted exactly once at the API boundary by `parseMoneyToMinorUnits` in
 `packages/shared/src/money.ts` (BigInt-based, supports exponents, deterministic rounding).
 Formatting back to a currency string uses `formatMoney`.
 
+- **Every African ISO 4217 currency is supported** — a user anywhere in Africa can track money
+  in their local currency (40 African codes plus USD/GBP/EUR for international accounts, KES is
+  the default). Minor-unit digits follow ISO 4217 exactly: 0 for UGX/TZS/XOF/XAF/BIF/DJF/GNF/
+  KMF/RWF, 3 for TND/LYD, 2 for the rest. Amount parsing is currency-aware: validation schemas
+  keep the raw value and services convert against the entity's actual currency (the account's
+  currency, the input currency on create, or the stored currency on update), so a UGX amount
+  like `1500.60` rounds to the correct minor unit instead of being mis-scaled by a hardcoded
+  currency.
+
 - `Transaction.amountMinor` is *signed*: expenses are negative, income is positive, transfer
   legs are `−amount` (out) and `+amount` (in). The sign is your balance ledger.
 - Stored as a 64-bit integer field (`BIGINT`): the practical ceiling is JavaScript's
@@ -212,7 +221,8 @@ npm run typecheck     # TypeScript checks (all workspaces)
 
 Each phase is finished only when the following all pass:
 
-- [x] Unit tests (`packages/shared`) — 62 tests, exact money parsing, FX rate conversion & schemas
+- [x] Unit tests (`packages/shared`) — 72 tests, exact money parsing, per-currency minor units,
+      FX rate conversion, currency registry & schemas
 - [x] TypeScript (`npm run typecheck`)
 - [x] ESLint (`npm run lint`)
 - [x] Production build (`npm run build`)
@@ -220,8 +230,9 @@ Each phase is finished only when the following all pass:
       `widen_amount_minor_bigint`, `add_bill_payments`)
 - [x] End-to-end smoke — public + private-mode auth scenarios, a 55-assertion finance suite
       (accounts, categories, transactions, transfers, dashboard, cross-user isolation, UI renders)
-      and a 64-assertion advanced suite (64-bit amounts, exact FX transfers, transfer editing,
-      budgets, debts, bills — including cross-user isolation and UI renders)
+      and a 94-assertion advanced suite (64-bit amounts, exact FX transfers, transfer editing,
+      budgets, debts, bills, universal African currencies — including cross-user isolation and
+      UI renders)
 - [x] Responsive UI review (no dead links or buttons)
 
 ## Roadmap
@@ -230,7 +241,9 @@ Each phase is finished only when the following all pass:
    env config, private mode, admin, data privacy, docs.
 2. **Financial engine** *(done)* — accounts, transactions, categories, income, expenses,
    transfers (exact-rate cross-currency FX included), monthly budgets, debt tracking, and
-   recurring bills — modeling, services, API, UI, tests all complete.
+   recurring bills — modeling, services, API, UI, tests all complete. Currency-universal:
+   every African ISO 4217 currency works end-to-end (per-currency parsing, formatting,
+   budgets, debts, bills, cross-currency transfers).
 3. **Budgets & goals** *(partial)* — monthly budgets are done; savings/spending goals and
    budget rollovers are still to come.
 4. **Debts & investments** *(partial)* — debt tracking is done ("tracked, not traded" — no

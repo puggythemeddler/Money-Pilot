@@ -12,9 +12,9 @@ import {
 import { ACCOUNT_TYPES, CATEGORY_KINDS } from "../src/finance";
 
 describe("moneyInputSchema", () => {
-  it("transforms decimal input into positive integer minor units", () => {
-    expect(moneyInputSchema.parse("100.50")).toBe(10050);
-    expect(moneyInputSchema.parse(12.34)).toBe(1234);
+  it("validates decimal input without transforming it", () => {
+    expect(moneyInputSchema.parse("100.50")).toBe("100.50");
+    expect(moneyInputSchema.parse(12.34)).toBe(12.34);
   });
 
   it("rejects zero, negative, and non-finite amounts", () => {
@@ -23,6 +23,12 @@ describe("moneyInputSchema", () => {
     expect(moneyInputSchema.safeParse(Number.NaN).success).toBe(false);
     expect(moneyInputSchema.safeParse("abc").success).toBe(false);
     expect(moneyInputSchema.safeParse(Infinity).success).toBe(false);
+  });
+
+  it("accepts amounts for any supported African currency", () => {
+    expect(moneyInputSchema.safeParse("1500").success).toBe(true);
+    expect(moneyInputSchema.safeParse("12.345").success).toBe(true);
+    expect(moneyInputSchema.safeParse("0.0001").success).toBe(true);
   });
 });
 
@@ -33,7 +39,7 @@ describe("accountCreateSchema", () => {
     if (result.success) {
       expect(result.data.type).toBe("BANK");
       expect(result.data.currency).toBe("KES");
-      expect(result.data.openingBalance).toBe(500000);
+      expect(result.data.openingBalance).toBe("5000");
     }
   });
 
@@ -90,14 +96,14 @@ describe("transactionCreateSchema", () => {
     expect(a.success).toBe(false);
   });
 
-  it("transforms amounts to minor units", () => {
+  it("keeps amounts raw for service-layer currency-aware parsing", () => {
     const result = transactionCreateSchema.parse({
       ...base,
       kind: "INCOME",
       amount: "100.50",
     });
     if (result.kind === "INCOME") {
-      expect(result.amount).toBe(10050);
+      expect(result.amount).toBe("100.50");
     } else {
       throw new Error("expected income");
     }
@@ -113,7 +119,7 @@ describe("transferCreateSchema", () => {
       transactionDate: "2026-09-01",
     });
     expect(okTry.success).toBe(true);
-    if (okTry.success) expect(okTry.data.amount).toBe(500000);
+    if (okTry.success) expect(okTry.data.amount).toBe("5000");
 
     expect(transferCreateSchema.safeParse({ amount: "5000", transactionDate: "2026-09-01" }).success).toBe(
       false,

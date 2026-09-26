@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { parseMoneyToMinorUnits } from "../money";
 import { preferredCurrencySchema } from "./auth";
 import {
   ACCOUNT_TYPE_LIST,
@@ -22,21 +21,21 @@ const dateSchema = z
 
 /**
  * A decimal amount entered by the user: either a finite positive JS number or
- * a decimal string. The result is deterministic INTEGER minor units; floats
- * are rounded exactly once at the boundary.
+ * a decimal string. The schema only validates the raw shape and positivity;
+ * conversion to integer minor units happens in the service layer against the
+ * entity's actual currency (an account's currency, an input currency, or the
+ * stored currency when updating), so currency-universal parsing is exact.
  */
 export const moneyInputSchema = z
   .union([z.number(), z.string().trim().min(1, "Amount is required.").max(30)])
   .refine(
     (v) => {
       if (typeof v === "number") return Number.isFinite(v);
-      // Reject obvious junk but let parseMoneyToMinorUnits do the exact work.
       return /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(v);
     },
     { message: "Enter a valid amount." },
   )
-  .transform((v) => parseMoneyToMinorUnits(v, "KES"))
-  .refine((minor) => minor > 0, { message: "Amount must be greater than zero." });
+  .refine((v) => Number(v) > 0, { message: "Amount must be greater than zero." });
 
 export type MoneyInput = z.infer<typeof moneyInputSchema>;
 
@@ -53,8 +52,10 @@ export const moneyNonNegativeInputSchema = z
     },
     { message: "Enter a valid amount." },
   )
-  .transform((v) => parseMoneyToMinorUnits(v, "KES"))
-  .refine((minor) => minor >= 0, { message: "Amount cannot be negative." });
+  .refine((v) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0;
+  }, { message: "Amount cannot be negative." });
 
 export type MoneyNonNegativeInput = z.infer<typeof moneyNonNegativeInputSchema>;
 

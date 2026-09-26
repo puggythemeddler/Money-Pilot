@@ -1,3 +1,4 @@
+import { AppError, ErrorCodes } from "./errors";
 import { getCurrency, requireCurrency } from "./currency";
 
 /**
@@ -126,6 +127,41 @@ export function fromMinorUnits(amountMinor: number, currencyCode: string = "KES"
   return amountMinor / 10 ** digits;
 }
 
+export interface ParseMoneyOptions {
+  /** Allow a zero amount (e.g. opening balances, optional minimum payments). */
+  allowZero?: boolean;
+}
+
+/**
+ * Parses a user-supplied amount against a KNOWN currency and enforces the
+ * positivity policy. Validation-only schemas keep the raw value untouched so
+ * services can convert using the entity's actual currency (an account's
+ * currency, the stored currency on an update, etc.) rather than a hardcoded
+ * default. Throws a 400 AppError on malformed or out-of-policy amounts so API
+ * routes surface them as VALIDATION_ERROR responses.
+ */
+export function parseMoneyInputToMinorUnits(
+  input: string | number,
+  currencyCode: string,
+  options: ParseMoneyOptions = {},
+): number {
+  let minor: number;
+  try {
+    minor = parseMoneyToMinorUnits(input, currencyCode);
+  } catch (err) {
+    const reason = err instanceof RangeError ? err.message : "Amount is invalid.";
+    throw new AppError(ErrorCodes.VALIDATION, reason, 400);
+  }
+  if (options.allowZero) {
+    if (minor < 0) {
+      throw new AppError(ErrorCodes.VALIDATION, "Amount cannot be negative.", 400);
+    }
+  } else if (minor <= 0) {
+    throw new AppError(ErrorCodes.VALIDATION, "Amount must be greater than zero.", 400);
+  }
+  return minor;
+}
+
 /** Adds a set of minor-unit values without converting to float. */
 export function sumMinorUnits(...values: number[]): number {
   let total = 0;
@@ -234,8 +270,8 @@ export function formatMoney(amountMinor: number, currencyCode: string, opts: For
       style: "currency",
       currency: currency.code,
       currencyDisplay: "code",
-      minimumFractionDigits: Math.min(currency.minorUnitDigits, 2),
-      maximumFractionDigits: Math.min(currency.minorUnitDigits, 2),
+      minimumFractionDigits: currency.minorUnitDigits,
+      maximumFractionDigits: currency.minorUnitDigits,
       useGrouping: !opts.noGrouping,
     }).format(value);
   } catch {

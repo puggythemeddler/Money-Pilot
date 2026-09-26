@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatMoney, fromMinorUnits, parseMoneyToMinorUnits } from "@moneypilot/shared";
+import { CURRENCIES, formatMoney, fromMinorUnits, parseMoneyToMinorUnits } from "@moneypilot/shared";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -83,7 +83,7 @@ export function BillsManager({
     setError(null);
     setBusy(true);
     const payload: Record<string, string> = {
-      amount: String(fromMinorUnits(editing.amountMinor, editing.currency === "UGX" ? "KES" : editing.currency)),
+      amount: String(fromMinorUnits(editing.amountMinor, editing.currency)),
       dueDay: String(editing.dueDay),
     };
     if (editing.name.trim()) payload.name = editing.name.trim();
@@ -146,10 +146,11 @@ export function BillsManager({
             </Field>
             <Field label="Currency" htmlFor="bl-currency">
               <Select id="bl-currency" value={currency} onChange={(e) => setCurrency(e.target.value)}>
-                <option value="KES">KES</option>
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
+                {Object.values(CURRENCIES).map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.code} — {c.name}
+                  </option>
+                ))}
               </Select>
             </Field>
             <Field label="Due day of month" htmlFor="bl-day">

@@ -110,7 +110,7 @@ export function TransactionsManager({ items, total, accounts, categories, filter
     setError(null);
     setBusy(true);
     const payload: Record<string, string> = {
-      amount: String(fromMinorUnits(Math.abs(editing.amountMinor), editing.currency === "UGX" ? "KES" : editing.currency)),
+      amount: String(fromMinorUnits(Math.abs(editing.amountMinor), editing.currency)),
       transactionDate: editing.transactionDate.slice(0, 10),
     };
     if (editing.description?.trim()) payload.description = editing.description.trim();

@@ -4,6 +4,7 @@ import {
   accountCreateSchema,
   accountUpdateSchema,
   minorToNumber,
+  parseMoneyInputToMinorUnits,
 } from "@moneypilot/shared";
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -69,7 +70,10 @@ export async function createAccount(
     name: input.name,
     type: input.type,
     currency: input.currency,
-    openingBalanceMinor: input.openingBalance ?? 0,
+    openingBalanceMinor:
+      input.openingBalance !== undefined
+        ? parseMoneyInputToMinorUnits(input.openingBalance, input.currency, { allowZero: true })
+        : 0,
   };
   try {
     const account = await prisma.account.create({ data });

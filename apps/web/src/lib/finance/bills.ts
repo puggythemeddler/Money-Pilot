@@ -5,6 +5,7 @@ import {
   billPaySchema,
   billUpdateSchema,
   minorToNumber,
+  parseMoneyInputToMinorUnits,
 } from "@moneypilot/shared";
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -93,11 +94,12 @@ export async function createBill(
       );
     }
   }
+  const amountMinor = parseMoneyInputToMinorUnits(input.amount, input.currency);
   const bill = await prisma.bill.create({
     data: {
       userId,
       name: input.name,
-      amountMinor: input.amount,
+      amountMinor,
       currency: input.currency,
       dueDay: input.dueDay,
       categoryId: category?.id ?? null,
@@ -109,7 +111,7 @@ export async function createBill(
     action: AUDIT_ACTIONS.BILL_CREATED,
     entityType: "Bill",
     entityId: bill.id,
-    metadata: { name: bill.name, amountMinor: input.amount, currency: bill.currency, dueDay: bill.dueDay },
+    metadata: { name: bill.name, amountMinor, currency: bill.currency, dueDay: bill.dueDay },
     ip: audit.ip,
     userAgent: audit.userAgent,
   });
@@ -130,7 +132,7 @@ export async function updateBill(
   input: BillUpdateInput,
   audit: { ip?: string; userAgent?: string },
 ) {
-  await getOwnedBill(userId, billId);
+  const existing = await getOwnedBill(userId, billId);
   const category = input.categoryId ? await getOwnedCategory(userId, input.categoryId) : undefined;
   if (category) {
     if (category.archivedAt !== null) {
@@ -149,7 +151,7 @@ export async function updateBill(
     archivedAt?: Date | null;
   } = {};
   if (input.name !== undefined) data.name = input.name;
-  if (input.amount !== undefined) data.amountMinor = input.amount;
+  if (input.amount !== undefined) data.amountMinor = parseMoneyInputToMinorUnits(input.amount, existing.currency);
   if (input.dueDay !== undefined) data.dueDay = input.dueDay;
   if (input.categoryId !== undefined) data.categoryId = category?.id ?? null;
   if (input.notes !== undefined) data.notes = input.notes ?? null;

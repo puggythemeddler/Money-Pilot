@@ -7,11 +7,13 @@ import {
   formatMoney,
   fromMinorUnits,
   minorToNumber,
+  parseMoneyInputToMinorUnits,
   parseMoneyToMinorUnits,
   parseRateFraction,
   sumMinorUnits,
   toMinorUnits,
 } from "../src/money";
+import { AppError, ErrorCodes } from "../src/errors";
 
 describe("toMinorUnits", () => {
   it("converts decimal amounts to integer minor units", () => {
@@ -85,6 +87,18 @@ describe("formatMoney", () => {
   it("supports the ISO code display", () => {
     expect(formatMoney(100, "KES", { showCode: true })).toContain("KES");
   });
+
+  it("shows no fraction digits for zero-decimal African currencies", () => {
+    expect(formatMoney(50000, "UGX")).toMatch(/50,000/);
+    expect(formatMoney(50000, "UGX")).toMatch(/USh/);
+    expect(formatMoney(25000, "XOF")).not.toContain(".");
+    expect(formatMoney(25000, "RWF")).not.toContain(".");
+  });
+
+  it("shows three fraction digits for three-decimal currencies", () => {
+    expect(formatMoney(12345, "TND")).toMatch(/12\.345/);
+    expect(formatMoney(12345, "LYD")).toMatch(/12\.345/);
+  });
 });
 
 describe("currency registry", () => {
@@ -100,8 +114,43 @@ describe("currency registry", () => {
 
   it("supports the new-currency escape hatch", () => {
     expect(isSupportedCurrency("KES")).toBe(true);
-    expect(isSupportedCurrency("ZAR")).toBe(false);
-    expect(requireCurrency("ZAR").code).toBe("KES");
+    expect(isSupportedCurrency("XYZ")).toBe(false);
+    expect(requireCurrency("XYZ").code).toBe("KES");
+  });
+
+  it("covers every African ISO 4217 currency with correct minor-unit digits", () => {
+    const expected: Record<string, number> = {
+      // East Africa
+      KES: 2, UGX: 0, TZS: 0, RWF: 0, BIF: 0, DJF: 0, ETB: 2, ERN: 2, SOS: 2, KMF: 0,
+      MGA: 2, MUR: 2, SCR: 2, MWK: 2, MZN: 2, ZMW: 2, ZWG: 2,
+      // West Africa
+      NGN: 2, XOF: 0, GHS: 2, GMD: 2, GNF: 0, LRD: 2, MRU: 2, SLE: 2, CVE: 2,
+      // Central Africa
+      XAF: 0, CDF: 2, AOA: 2, STN: 2,
+      // Southern Africa
+      ZAR: 2, BWP: 2, NAD: 2, SZL: 2, LSL: 2, SSP: 2,
+      // North Africa
+      DZD: 2, EGP: 2, LYD: 3, MAD: 2, SDG: 2, TND: 3,
+      // International
+      USD: 2, GBP: 2, EUR: 2,
+    };
+    for (const [code, digits] of Object.entries(expected)) {
+      expect(CURRENCIES[code], `missing currency ${code}`).toBeDefined();
+      expect(CURRENCIES[code]?.minorUnitDigits, `${code} digits`).toBe(digits);
+      expect(isSupportedCurrency(code)).toBe(true);
+    }
+  });
+
+  it("keeps registry entries well-formed and unique", () => {
+    const entries = Object.values(CURRENCIES);
+    expect(new Set(entries.map((c) => c.code)).size).toBe(entries.length);
+    for (const c of entries) {
+      expect(c.code).toMatch(/^[A-Z]{3}$/);
+      expect(c.name.length).toBeGreaterThan(0);
+      expect(c.symbol.length).toBeGreaterThan(0);
+      expect(c.minorUnitDigits).toBeGreaterThanOrEqual(0);
+      expect(c.minorUnitDigits).toBeLessThanOrEqual(3);
+    }
   });
 });
 
@@ -157,6 +206,48 @@ describe("parseMoneyToMinorUnits", () => {
 
   it("rejects amounts beyond the safe integer range", () => {
     expect(() => parseMoneyToMinorUnits("99999999999999999999999", "KES")).toThrow(RangeError);
+  });
+
+  it("parses per-currency minor units for African currencies", () => {
+    expect(parseMoneyToMinorUnits("1500", "UGX")).toBe(1500);
+    expect(parseMoneyToMinorUnits("1500.60", "UGX")).toBe(1501);
+    expect(parseMoneyToMinorUnits("25000.49", "XOF")).toBe(25000);
+    expect(parseMoneyToMinorUnits("12.345", "TND")).toBe(12345);
+    expect(parseMoneyToMinorUnits("99.999", "LYD")).toBe(99999);
+    expect(parseMoneyToMinorUnits("1234.50", "GHS")).toBe(123450);
+  });
+});
+
+describe("parseMoneyInputToMinorUnits", () => {
+  it("converts raw input against the given currency", () => {
+    expect(parseMoneyInputToMinorUnits("100.50", "KES")).toBe(10050);
+    expect(parseMoneyInputToMinorUnits("1500", "UGX")).toBe(1500);
+    expect(parseMoneyInputToMinorUnits("25000", "XOF")).toBe(25000);
+    expect(parseMoneyInputToMinorUnits("12.345", "TND")).toBe(12345);
+  });
+
+  it("throws a 400 VALIDATION AppError for zero and negative amounts by default", () => {
+    for (const bad of ["0", "0.00", "-5", "-0.01"]) {
+      try {
+        parseMoneyInputToMinorUnits(bad, "KES");
+        throw new Error(`expected ${bad} to be rejected`);
+      } catch (err) {
+        expect(err).toBeInstanceOf(AppError);
+        expect((err as AppError).code).toBe(ErrorCodes.VALIDATION);
+        expect((err as AppError).status).toBe(400);
+      }
+    }
+  });
+
+  it("allows zero when allowZero is set but still rejects negatives", () => {
+    expect(parseMoneyInputToMinorUnits("0", "KES", { allowZero: true })).toBe(0);
+    expect(() => parseMoneyInputToMinorUnits("-1", "KES", { allowZero: true })).toThrow(AppError);
+  });
+
+  it("maps malformed input to a 400 VALIDATION AppError", () => {
+    for (const bad of ["", "abc", "1.2.3", Number.NaN, Infinity]) {
+      expect(() => parseMoneyInputToMinorUnits(bad as string, "KES")).toThrow(AppError);
+    }
   });
 });
 

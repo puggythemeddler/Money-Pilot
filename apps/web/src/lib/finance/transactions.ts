@@ -5,6 +5,7 @@ import {
   transactionUpdateSchema,
   transactionQuerySchema,
   minorToNumber,
+  parseMoneyInputToMinorUnits,
 } from "@moneypilot/shared";
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -121,7 +122,8 @@ export async function createTransaction(
     }
   }
 
-  const signed = input.kind === "EXPENSE" ? -input.amount : input.amount;
+  const amountMinor = parseMoneyInputToMinorUnits(input.amount, account.currency);
+  const signed = input.kind === "EXPENSE" ? -amountMinor : amountMinor;
   const transaction = await prisma.transaction.create({
     data: {
       userId,
@@ -181,7 +183,8 @@ export async function updateTransaction(
     categoryId?: string | null;
   } = {};
   if (input.amount !== undefined) {
-    data.amountMinor = existing.kind === "EXPENSE" ? -input.amount : input.amount;
+    const amountMinor = parseMoneyInputToMinorUnits(input.amount, existing.currency);
+    data.amountMinor = existing.kind === "EXPENSE" ? -amountMinor : amountMinor;
   }
   if (input.transactionDate !== undefined) data.transactionDate = toUtcMidnight(input.transactionDate);
   if (input.description !== undefined) data.description = input.description ?? null;

@@ -4,6 +4,7 @@ import {
   budgetCreateSchema,
   budgetUpdateSchema,
   minorToNumber,
+  parseMoneyInputToMinorUnits,
 } from "@moneypilot/shared";
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -125,11 +126,12 @@ export async function createBudget(
   }
 
   try {
+    const amountMinor = parseMoneyInputToMinorUnits(input.amount, input.currency);
     const budget = await prisma.budget.create({
       data: {
         userId,
         name: input.name,
-        amountMinor: input.amount,
+        amountMinor,
         currency: input.currency,
         period: input.period,
         categoryId: category?.id ?? null,
@@ -141,7 +143,7 @@ export async function createBudget(
       action: AUDIT_ACTIONS.BUDGET_CREATED,
       entityType: "Budget",
       entityId: budget.id,
-      metadata: { name: budget.name, amountMinor: input.amount, currency: budget.currency, period: budget.period },
+      metadata: { name: budget.name, amountMinor, currency: budget.currency, period: budget.period },
       ip: audit.ip,
       userAgent: audit.userAgent,
     });
@@ -168,10 +170,10 @@ export async function updateBudget(
   input: BudgetUpdateInput,
   audit: { ip?: string; userAgent?: string },
 ) {
-  await getOwnedBudget(userId, budgetId);
+  const budget = await getOwnedBudget(userId, budgetId);
   const data: { name?: string; amountMinor?: number; notes?: string | null; archivedAt?: Date | null } = {};
   if (input.name !== undefined) data.name = input.name;
-  if (input.amount !== undefined) data.amountMinor = input.amount;
+  if (input.amount !== undefined) data.amountMinor = parseMoneyInputToMinorUnits(input.amount, budget.currency);
   if (input.notes !== undefined) data.notes = input.notes ?? null;
   if (input.archived !== undefined) data.archivedAt = input.archived ? new Date() : null;
 
