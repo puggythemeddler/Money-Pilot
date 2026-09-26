@@ -8,25 +8,27 @@ Everything you record stays yours. The product deliberately avoids unsolicited m
 no ads, no data brokerage, no financial product upsells. It only spends from an optional
 monthly core budget you choose explicitly.
 
-> Status: **Phase 3 complete — production-ready with shared households.** Authentication,
-> invite-only mode, admin foundation, data export / account deletion, accounts, categories,
-> transactions, income/expenses, transfers, budgets, debts, recurring bills **and shared
-> households (joint accounts for families/couples with per-member permissions)** are implemented
-> and end-to-end tested. CI is fully green (lint/typecheck/unit tests/build, dependency audit,
-> Semgrep, Playwright browser e2e, optional Snyk) and the Render + Neon deployment path is
-> ready — see [docs/deployment.md](docs/deployment.md) and [DESIGN.md](DESIGN.md).
+> Status: **Phase 3 complete + service split.** Authentication, invite-only mode, admin
+> foundation, data export / account deletion, accounts, categories, transactions,
+> income/expenses, transfers, budgets, debts, recurring bills **and shared households (joint
+> accounts for families/couples with per-member permissions)** are implemented and
+> end-to-end tested. The app is split into a standalone Hono API (`apps/api`, Render) and a
+> frontend-only web app (`apps/web`, Vercel) proxying `/api/*` same-origin. CI is fully green
+> (lint/typecheck/unit tests/build, dependency audit, Semgrep, Playwright browser e2e,
+> optional Snyk) and the Vercel + Render + Neon deployment path is ready — see
+> [docs/deployment.md](docs/deployment.md) and [DESIGN.md](DESIGN.md).
 
 ## Stack
 
 | Layer      | Choice                                                            |
 | ---------- | ----------------------------------------------------------------- |
-| Framework  | Next.js (App Router) + React 19, TypeScript                       |
-| API        | Route handlers under `apps/web/src/app/api`                       |
+| Web app    | Next.js (App Router) + React 19, TypeScript — frontend-only (`apps/web`) |
+| API        | Hono + @hono/node-server (`apps/api`) — all routes, auth, domain services |
 | Database   | Prisma 6 + PostgreSQL (canonical; Neon in production) / SQLite twin (local dev) |
 | Auth       | bcrypt (12 rounds), 15-minute HMAC access JWTs, opaque rotating refresh tokens |
 | Validation | Zod schemas in `packages/shared`                                  |
 | Styling    | Tailwind CSS v4                                                   |
-| Monorepo   | Turborepo; `apps/web` (app), `apps/e2e` (browser e2e), `packages/shared` (shared code) |
+| Monorepo   | Turborepo; `apps/api` (backend), `apps/web` (frontend), `apps/e2e` (browser e2e), `packages/shared` (shared code) |
 
 ## Money model
 

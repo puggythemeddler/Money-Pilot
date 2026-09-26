@@ -1,9 +1,10 @@
 # @moneypilot/shared
 
 Shared domain rules for Money Pilot — pure TypeScript with no build step.
-Exported as source (`src/index.ts`) and consumed directly by `apps/web`
-through the npm workspace dependency, so any change here is picked up by the
-app on the next dev/build without a publish step.
+Exported as source (`src/index.ts`) and consumed directly by `apps/web` and
+`apps/api` through the npm workspace dependency (the API's esbuild bundle
+compiles this package's TypeScript as part of its own build), so any change
+here is picked up by both apps on the next dev/build without a publish step.
 
 ## What lives here
 
@@ -20,6 +21,8 @@ app on the next dev/build without a publish step.
   (deterministic integer rate-fraction math, no floats)
 - `schemas/` — the Zod request schemas every API route validates against
 - `errors.ts` — the shared error-code contract for consistent API errors
+- `types.ts` — the `AuthUser` / `PublicUser` shape shared by the API (issuer)
+  and the web app (consumer)
 
 The rule of the house: **money is never a float**. Amounts are integer minor
 units end-to-end; see the root README's "Money model" section for the full
@@ -29,7 +32,7 @@ semantics (signed ledger amounts, derived balances, atomic transfers).
 
 | Script                     | What it does                                        |
 | -------------------------- | ---------------------------------------------------- |
-| `npm run test`             | vitest — 72 tests: exact parsing, per-currency minor digits, FX conversion, registry, schemas |
+| `npm run test`             | vitest — 84 tests: exact parsing, per-currency minor digits, FX conversion, registry, schemas |
 | `npm run lint` / `typecheck` | ESLint / `tsc --noEmit`                            |
 
 From the repo root: `npm run test -- --filter=@moneypilot/shared`
