@@ -1,4 +1,11 @@
 // ------------------------------------------------------------------
+// GENERATED FILE — DO NOT EDIT.
+// Zero-install SQLite twin for local development and e2e harnesses.
+// Regenerate with: node apps/web/scripts/make-sqlite-schema.mjs
+// (after editing the canonical prisma/schema.prisma).
+// ------------------------------------------------------------------
+
+// ------------------------------------------------------------------
 // MoneyPilot database schema — Phase 2 (identity, sessions, finance)
 //
 // PRODUCTION:  provider is "postgresql" (canonical). Deployments run
@@ -30,7 +37,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 

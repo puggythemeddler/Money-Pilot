@@ -18,7 +18,7 @@ monthly core budget you choose explicitly.
 | ---------- | ----------------------------------------------------------------- |
 | Framework  | Next.js (App Router) + React 19, TypeScript                       |
 | API        | Route handlers under `apps/web/src/app/api`                       |
-| Database   | Prisma 6 + SQLite (local development) / PostgreSQL (production)    |
+| Database   | Prisma 6 + PostgreSQL (canonical; Neon in production) / SQLite twin (local dev) |
 | Auth       | bcrypt (12 rounds), 15-minute HMAC access JWTs, opaque rotating refresh tokens |
 | Validation | Zod schemas in `packages/shared`                                  |
 | Styling    | Tailwind CSS v4                                                   |
@@ -69,10 +69,25 @@ Formatting back to a currency string uses `formatMoney`.
 
 ```
 apps/web          Next.js application (UI + API routes)
+  prisma/schema.prisma        Canonical PostgreSQL schema (production migrations)
+  prisma/schema.sqlite.prisma Generated SQLite twin (local dev + e2e; regenerate via db:schema:sqlite)
+  scripts/                   db twin generator, prod env check, admin bootstrap
   src/lib/finance     Financial domain services (ownership + audit on every write)
   src/app/api/finance   API routes: accounts, categories, transactions, transfers, dashboard
 packages/shared   Shared domain rules: money (minor units), currency, zod schemas, error contract
+docs/deployment.md  Render + Neon production deployment guide
+render.yaml     Render Blueprint (web service + health check + pre-deploy migrations)
+.github/workflows/ci.yml   CI: lint, typecheck, unit tests, build, npm audit
 ```
+
+## Production deployment
+
+GitHub → **Render** (the full Next.js app: UI + API in one service, so no CORS
+surface and same-origin cookies) → **Neon PostgreSQL**. Deploy with the
+Blueprint in `render.yaml`: pre-deploy checks the required environment
+variables and runs `prisma migrate deploy` (never `migrate dev` against
+production). Full instructions: **[docs/deployment.md](docs/deployment.md)**
+(Neon setup, Render blueprint, smoke test, backups/recovery, custom domains).
 
 ## Getting started
 
@@ -84,12 +99,17 @@ Requirements: Node.js 20+ (developed on 24), npm.
    npm install
    ```
 
-2. Prepare the local database:
+2. Prepare the local database (SQLite twin — zero-install):
 
    ```sh
    cd apps/web
-   npx prisma migrate dev
+   npm run db:dev
    ```
+
+   `db:dev` generates the SQLite client from `prisma/schema.sqlite.prisma` and
+   creates `prisma/dev.db`. (Developing against PostgreSQL instead is also
+   supported: point `DATABASE_URL` at a Postgres instance and run
+   `npx prisma migrate dev` against the canonical schema.)
 
 3. Configure environment variables:
 
@@ -215,6 +235,12 @@ npm run build         # production build (all workspaces)
 npm run test          # unit tests (packages/shared)
 npm run lint          # eslint (all workspaces)
 npm run typecheck     # TypeScript checks (all workspaces)
+
+# apps/web
+npm run db:dev             # generate SQLite client + create prisma/dev.db (local dev)
+npm run db:schema:sqlite   # regenerate the SQLite twin after a schema change
+npm run db:generate        # generate the canonical PostgreSQL client
+npm run db:deploy          # prisma migrate deploy (production; run by Render pre-deploy)
 ```
 
 ## Verification checklist
@@ -226,8 +252,11 @@ Each phase is finished only when the following all pass:
 - [x] TypeScript (`npm run typecheck`)
 - [x] ESLint (`npm run lint`)
 - [x] Production build (`npm run build`)
-- [x] API/DB consistency (Prisma migrations: `init`, `add_roles_and_invitations`, `finance_accounts`,
-      `widen_amount_minor_bigint`, `add_bill_payments`)
+- [x] API/DB consistency (PostgreSQL migrations: canonical schema with a single
+      `postgres_baseline` migration applied via `prisma migrate deploy`; SQLite twin
+      for local dev/e2e is generated from it, so they can never drift)
+- [x] CI (GitHub Actions: lint, typecheck, unit tests, production build, npm audit
+      at high-and-above — see `.github/workflows/ci.yml`)
 - [x] End-to-end smoke — public + private-mode auth scenarios, a 55-assertion finance suite
       (accounts, categories, transactions, transfers, dashboard, cross-user isolation, UI renders)
       and a 94-assertion advanced suite (64-bit amounts, exact FX transfers, transfer editing,
@@ -258,12 +287,21 @@ third-party payment processing, social networking, and an unsolicited advisory e
 ## Known limitations
 
 - Email is printed to the server console when no SMTP is configured.
-- SQLite is for local development; use PostgreSQL for production.
+- Local development runs on the generated SQLite twin; production is PostgreSQL
+  (Neon). The twin is generated from the canonical schema (`db:schema:sqlite`),
+  so both model the exact same data.
+- The PostgreSQL production path is verified locally only up to build + the
+  pre-deploy environment check (no PostgreSQL instance is available in this
+  environment); the first real `prisma migrate deploy` runs on Render — see
+  docs/deployment.md for the smoke test to run after the first deploy.
 - Cell values (including `amountMinor`) are 64-bit `BIGINT`; JavaScript's safe-integer ceiling
   therefore applies (see "Money model").
 - Whole transfer bundles can be edited in place (amount, rate, date, name, notes); changing the
   source/destination pair means deleting and re-creating the transfer, since the two-leg bundle
   must always stay consistent.
+- Auth rate limiting is in-memory (per-instance). Acceptable for the single
+  Render service in this topology; a shared store (e.g. Redis or Neon-backed)
+  is the upgrade path if the service ever scales horizontally.
 
 ## License
 

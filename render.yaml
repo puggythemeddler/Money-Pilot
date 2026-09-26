@@ -1,0 +1,49 @@
+# Render Blueprint: MoneyPilot (full Next.js app) + Neon PostgreSQL.
+# Production topology: GitHub -> Render (UI + API) -> Neon PostgreSQL.
+# The frontend is served by the same Next.js process, so there is no CORS
+# surface: cookies and API calls stay same-origin. Vercel is deliberately
+# not used (a split frontend/backend would add cross-domain cookies + CORS
+# complexity with no benefit for this app). See docs/deployment.md.
+services:
+  - type: web
+    name: moneypilot
+    runtime: node
+    plan: starter # adjust to your needs
+    region: frankfurt # pick the region closest to your users
+    rootDir: apps/web
+    # Render installs workspace dependencies from the repository root
+    # package-lock.json (postinstall generates the SQLite dev client; the
+    # build command regenerates the canonical PostgreSQL client).
+    buildCommand: npx prisma generate && npm run build
+    startCommand: npx next start -p $PORT
+    preDeployCommand: node scripts/check-prod-env.mjs && npx prisma migrate deploy
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Neon PostgreSQL connection string (pooled endpoint recommended).
+      # Example: postgresql://user:pass@host/dbname?sslmode=require
+      - key: DATABASE_URL
+        sync: false
+      # HMAC secret for access tokens. At least 32 characters.
+      # Generate: node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+      - key: AUTH_JWT_SECRET
+        sync: false
+      # Public URL of this service, e.g. https://moneypilot.onrender.com
+      # (or your custom domain). Must be https:// in production.
+      - key: APP_BASE_URL
+        sync: false
+      # Invite-only registration: "true" requires invitation tokens.
+      - key: PRIVATE_MODE
+        value: "false"
+      # Web-session lifetime in days.
+      - key: AUTH_REFRESH_TTL_DAYS
+        value: "30"
+      # SMTP (optional until a mailer provider is configured).
+      # - key: SMTP_HOST
+      #   sync: false
+      # - key: SMTP_USER
+      #   sync: false
+      # - key: SMTP_PASS
+      #   sync: false

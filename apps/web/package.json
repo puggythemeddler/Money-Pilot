@@ -12,7 +12,9 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "db:dev": "prisma generate --schema prisma/schema.sqlite.prisma && prisma db push --schema prisma/schema.sqlite.prisma",
+    "db:schema:sqlite": "node scripts/make-sqlite-schema.mjs",
+    "postinstall": "prisma generate --schema prisma/schema.sqlite.prisma"
   },
   "dependencies": {
     "@moneypilot/shared": "*",

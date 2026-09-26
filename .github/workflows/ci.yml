@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    name: lint, typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # postinstall generates the SQLite dev client; the production build
+      # regenerates the canonical PostgreSQL client (no database needed).
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests (shared domain rules)
+        run: npm run test -- --filter=@moneypilot/shared
+
+      - name: Production build (web)
+        run: |
+          npx prisma generate
+          npm run build
+        working-directory: apps/web
+
+  audit:
+    name: npm audit (high and above)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies (for lockfile resolution)
+        run: npm ci
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
