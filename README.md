@@ -8,12 +8,13 @@ Everything you record stays yours. The product deliberately avoids unsolicited m
 no ads, no data brokerage, no financial product upsells. It only spends from an optional
 monthly core budget you choose explicitly.
 
-> Status: **Phase 3 complete + service split.** Authentication, invite-only mode, admin
+> Status: **Phase 3–5 complete + service split.** Authentication, invite-only mode, admin
 > foundation, data export / account deletion, accounts, categories, transactions,
-> income/expenses, transfers, budgets, debts, recurring bills **and shared households (joint
-> accounts for families/couples with per-member permissions)** are implemented and
-> end-to-end tested. The app is split into a standalone Hono API (`apps/api`, Render) and a
-> frontend-only web app (`apps/web`, Vercel) proxying `/api/*` same-origin. CI is fully green
+> income/expenses, transfers, budgets, debts, recurring bills, **shared households (joint
+> accounts for families/couples with per-member permissions)** and **optional Google
+> sign-in (OAuth + PKCE, linking from Settings)** are implemented and end-to-end tested.
+> The app is split into a standalone Hono API (`apps/api`, Render) and a frontend-only
+> web app (`apps/web`, Vercel) proxying `/api/*` same-origin. CI is fully green
 > (lint/typecheck/unit tests/build, dependency audit, Semgrep, Playwright browser e2e,
 > optional Snyk) and the Vercel + Render + Neon deployment path is ready — see
 > [docs/deployment.md](docs/deployment.md) and [DESIGN.md](DESIGN.md).
@@ -192,6 +193,7 @@ frontend-only web app has a single variable in `apps/web/.env`.
 | `RATE_LIMIT_AUTH_MAX`          | api   | Auth request cap per IP per window                             | `20`               |
 | `RATE_LIMIT_AUTH_WINDOW_SECONDS` | api | Auth rate-limit window                                         | `60`               |
 | `ALLOWED_ORIGINS`              | api   | Comma-separated extra origins accepted by the CSRF check      | —                  |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | api | OAuth credentials for "Continue with Google"; unset = disabled | — |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` | api | SMTP for email delivery; falls back to console | — |
 | `MONEYPILOT_API_ORIGIN`        | web   | API origin that `/api/*` is proxied to                         | `http://localhost:4000` |
 
@@ -237,6 +239,15 @@ and can be re-run — subsequent runs are a no-op.
   authentication while retaining audit rows for compliance.
 - Auth endpoints are rate-limited per IP. `assertProdConfig` refuses to run on production
   builds unless served over https or loopback http.
+- **Google sign-in (optional)**: with `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` set, the
+  login and register pages offer "Continue with Google" — OAuth 2.0 + PKCE (S256), the
+  ID token verified against Google's JWKS, and the in-flight transaction (state + PKCE
+  verifier) kept in a signed HttpOnly cookie scoped to `/api/auth/google`. A verified
+  Google email matching an existing verified account auto-links it; unknown emails create
+  a Google-only account whose stored password hash is unguessable (password login stays
+  impossible until the user sets one via the email-verified forgot-password flow). Settings
+  lists connected identities and requires the account password to disconnect. Unset
+  credentials disable the feature gracefully.
 
 ### Security tooling
 

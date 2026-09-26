@@ -48,6 +48,14 @@ services:
       # e.g. a staging web URL or a custom domain during migration.
       # - key: ALLOWED_ORIGINS
       #   sync: false
+      # "Continue with Google" (optional): OAuth 2.0 Web-application
+      # credentials from the Google Cloud Console. The authorized redirect URI
+      # is <APP_BASE_URL>/api/auth/google/callback. Unset = Google sign-in
+      # disabled (everything else works).
+      # - key: GOOGLE_CLIENT_ID
+      #   sync: false
+      # - key: GOOGLE_CLIENT_SECRET
+      #   sync: false
       # SMTP (optional until a mailer provider is configured).
       # - key: SMTP_HOST
       #   sync: false

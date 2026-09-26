@@ -57,6 +57,14 @@ export const env = {
     from: process.env.SMTP_FROM ?? "MoneyPilot <no-reply@moneypilot.local>",
     secure: bool(process.env.SMTP_SECURE, false),
   },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    /** True only when both credentials are present (partial config = off). */
+    get configured(): boolean {
+      return this.clientId.length > 0 && this.clientSecret.length > 0;
+    },
+  },
 };
 
 /**

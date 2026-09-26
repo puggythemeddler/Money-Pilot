@@ -104,6 +104,22 @@ The repository ships a Render Blueprint: **`render.yaml`** at the repo root.
    `PRIVATE_MODE=true` (invite-only registration), `AUTH_REFRESH_TTL_DAYS`,
    and the `SMTP_*` variables once a mailer provider is configured.
 
+   **"Continue with Google" (optional)** — set `GOOGLE_CLIENT_ID` and
+   `GOOGLE_CLIENT_SECRET` on the API service to enable Google sign-in:
+
+   1. In the [Google Cloud Console](https://console.cloud.google.com/) create
+      (or pick) a project, then go to **APIs & Services → Credentials →
+      Create Credentials → OAuth client ID → Web application**.
+   2. Add an **Authorized redirect URI**:
+      `https://<your-web-app-url>/api/auth/google/callback` (the **web app's**
+      URL — the OAuth redirect lands on the web origin and is proxied to the
+      API like every other `/api/*` request).
+   3. Copy the client ID and secret into the two `GOOGLE_*` variables on
+      Render.
+
+   Without them the Google endpoints redirect back with a clear "not
+   configured" error and everything else works unchanged.
+
 4. Deploy. The pre-deploy step (`node scripts/check-prod-env.mjs &&
    npx prisma migrate deploy`, run in `apps/api`) fails fast with a clear
    message if a required variable is missing or malformed, then applies

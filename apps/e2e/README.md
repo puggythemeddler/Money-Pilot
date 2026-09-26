@@ -1,10 +1,10 @@
 # @moneypilot/e2e
 
-Playwright browser e2e suite for the Money Pilot app (Chromium, 23
-tests): the critical user paths — auth and session protection, accounts,
-transactions, transfers, dashboard aggregation, and households — run against
-the real production topology (web app + standalone API behind the `/api/*`
-proxy).
+Playwright browser e2e suite for the Money Pilot app (Chromium, 29
+tests): the critical user paths — auth and session protection, Google
+sign-in's unconfigured path, accounts, transactions, transfers, dashboard
+aggregation, and households — run against the real production topology
+(web app + standalone API behind the `/api/*` proxy).
 
 ## Run
 
@@ -41,7 +41,10 @@ npx playwright install chromium
   - readiness is polled at `http://localhost:3105/api/health` — through
     the proxy, proving the whole chain (web up, rewrite wired, API up).
 - The server is **self-contained: no `.env` is needed** (verified on CI by
-  running the suite with no `.env` present at all).
+  running the suite with no `.env` present at all). `GOOGLE_CLIENT_ID` /
+  `GOOGLE_CLIENT_SECRET` are deliberately never set, so `google-auth.spec.ts`
+  exercises the fully unconfigured path (friendly redirects back, forged
+  callbacks refused).
 - Every test registers its own user (`uniqueEmail`), so tests share nothing
   and each one is a fully isolated scenario.
 - One worker, serial (`workers: 1`): the SQLite-backed server and browser
@@ -56,6 +59,7 @@ npx playwright install chromium
 | Spec                 | Covers                                                              |
 | -------------------- | -------------------------------------------------------------------- |
 | `auth.spec.ts`       | register/login/logout, invalid + weak passwords, protected-route redirects, tampered session cookie, 401 after logout, re-login |
+| `google-auth.spec.ts` | unconfigured "Continue with Google" redirects (login, register, Settings), forged callback refused, identities endpoint, unlinking a non-connected provider |
 | `accounts.spec.ts`   | create/archive/unarchive, multi-currency accounts, rename           |
 | `transactions.spec.ts` | income + expense entry, kind + search filters, USD formatting, API pagination |
 | `transfers.spec.ts`  | same-currency transfer with balance checks, both legs in history    |

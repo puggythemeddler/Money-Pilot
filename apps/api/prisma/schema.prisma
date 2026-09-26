@@ -66,6 +66,7 @@ model User {
   bills                Bill[]
   billPayments         BillPayment[]
   householdMembership  HouseholdMember?
+  identities           UserIdentity[]
 
   @@map("users")
 }
@@ -206,6 +207,28 @@ model VerificationToken {
 
   @@index([userId, kind])
   @@map("verification_tokens")
+}
+
+/// An external identity linked to a user account (e.g. "google"). Linking is
+/// how "Continue with Google" works inside the existing session system: the
+/// identity either logs an existing user in, or becomes the initial
+/// credential of a newly created account. `providerSubject` is the opaque
+/// provider-side subject (Google `sub`) — never the email, which can change.
+/// `emailAtLink` is informational (display in Settings); matching on email is
+/// only done at link/login time against the live profile.
+model UserIdentity {
+  id              String   @id @default(cuid())
+  userId          String
+  provider        String // google
+  providerSubject String
+  emailAtLink     String
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSubject])
+  @@index([userId])
+  @@map("user_identities")
 }
 
 /// Invitation to register, used when PRIVATE_MODE=true (invite-only signup).

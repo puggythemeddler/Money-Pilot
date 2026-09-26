@@ -28,8 +28,8 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Unit tests (shared domain rules)
-        run: npm run test -- --filter=@moneypilot/shared
+      - name: Unit tests (shared domain rules + api linking rules)
+        run: npm run test
 
       # The API bundles with esbuild after typechecking; the canonical
       # PostgreSQL client is generated first (postinstall generated the

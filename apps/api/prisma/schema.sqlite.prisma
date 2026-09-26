@@ -1,7 +1,7 @@
 // ------------------------------------------------------------------
 // GENERATED FILE — DO NOT EDIT.
 // Zero-install SQLite twin for local development and e2e harnesses.
-// Regenerate with: node apps/web/scripts/make-sqlite-schema.mjs
+// Regenerate with: node apps/api/scripts/make-sqlite-schema.mjs
 // (after editing the canonical prisma/schema.prisma).
 // ------------------------------------------------------------------
 
@@ -14,8 +14,8 @@
 // DEVELOPMENT: zero-install local development (and the e2e harnesses)
 //              use the generated SQLite twin `prisma/schema.sqlite.prisma`
 //              — regenerate it with
-//              `node apps/web/scripts/make-sqlite-schema.mjs` after any
-//              schema change, then
+//              `node apps/api/scripts/make-sqlite-schema.mjs` after any
+//              schema change (run inside apps/api), then
 //              `npx prisma db push --schema prisma/schema.sqlite.prisma`.
 //              The schema deliberately avoids provider-specific features
 //              so both providers model the exact same data.
@@ -73,6 +73,7 @@ model User {
   bills                Bill[]
   billPayments         BillPayment[]
   householdMembership  HouseholdMember?
+  identities           UserIdentity[]
 
   @@map("users")
 }
@@ -213,6 +214,28 @@ model VerificationToken {
 
   @@index([userId, kind])
   @@map("verification_tokens")
+}
+
+/// An external identity linked to a user account (e.g. "google"). Linking is
+/// how "Continue with Google" works inside the existing session system: the
+/// identity either logs an existing user in, or becomes the initial
+/// credential of a newly created account. `providerSubject` is the opaque
+/// provider-side subject (Google `sub`) — never the email, which can change.
+/// `emailAtLink` is informational (display in Settings); matching on email is
+/// only done at link/login time against the live profile.
+model UserIdentity {
+  id              String   @id @default(cuid())
+  userId          String
+  provider        String // google
+  providerSubject String
+  emailAtLink     String
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSubject])
+  @@index([userId])
+  @@map("user_identities")
 }
 
 /// Invitation to register, used when PRIVATE_MODE=true (invite-only signup).

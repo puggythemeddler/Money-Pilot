@@ -32,8 +32,22 @@ import { sendVerificationEmail, sendPasswordResetEmail } from "@/lib/email";
 import { writeAudit } from "@/lib/audit";
 import { authRateLimit } from "@/lib/rateLimit";
 import { fail, getClientIp, newRequestId, ok, parseJson, validate } from "@/lib/api";
-import { authJsonResponse, clearAuthCookies, isTokenMode } from "@/lib/cookies";
+import { authJsonResponse, clearAuthCookies, isTokenMode, setAuthCookies } from "@/lib/cookies";
 import { getAuthContext, readRefreshToken, requireUser, toPublicUser } from "@/lib/auth";
+import { decideGoogleAction, normalizeEmailForMatch, type ExistingUserInput, type GoogleRefusalReason } from "@/lib/google-linking";
+import {
+  buildGoogleAuthUrl,
+  clearOAuthTxCookie,
+  exchangeGoogleCode,
+  generatePkce,
+  generateState,
+  readOAuthTxCookie,
+  setOAuthTxCookie,
+  signOAuthTx,
+  verifyGoogleIdToken,
+  verifyOAuthTx,
+} from "@/lib/google-oauth";
+import { randomToken } from "@/lib/tokens";
 
 /**
  * Auth routes mounted at /api: login, register, refresh, logout, logout-all,
@@ -590,6 +604,341 @@ auth.post("/auth/devices", async (c) => {
       return clearAuthCookies(res);
     }
     return res;
+  } catch (err) {
+    return fail(err, requestId);
+  }
+});
+
+// ---------------------------------------------------------------------
+// Google OAuth ("Continue with Google")
+//
+// The flow is redirect-based and browser-only, so both endpoints answer
+// with redirects (JSON errors would be invisible to a top-level
+// navigation). The in-flight state + PKCE verifier live in a signed,
+// HttpOnly, 10-minute cookie scoped to /api/auth/google.
+// ---------------------------------------------------------------------
+
+const GOOGLE_REDIRECT_PATH = "/api/auth/google/callback";
+
+/** Maps a refusal reason to the error code the web UI renders. */
+const GOOGLE_REFUSAL_CODES: Record<GoogleRefusalReason, string> = {
+  NO_EMAIL: "google_email",
+  EMAIL_NOT_VERIFIED: "google_email_unverified",
+  ACCOUNT_DELETED: "google_account_disabled",
+  ACCOUNT_DISABLED: "google_account_disabled",
+  EMAIL_TAKEN_UNVERIFIED: "google_email_taken",
+  ALREADY_LINKED: "google_already_linked",
+  NOT_SIGNED_IN: "google_state",
+  PRIVATE_MODE: "invite_required",
+};
+
+function redirect(path: string): Response {
+  const res = new Response(null, { status: 302 });
+  res.headers.set("Location", path);
+  return res;
+}
+
+auth.get("/auth/google/start", async (c) => {
+  const req = c.req.raw;
+  try {
+    const url = new URL(req.url);
+    const linkMode = url.searchParams.get("link") === "1";
+    const backTo = linkMode ? `${env.appBaseUrl}/dashboard/settings` : `${env.appBaseUrl}/login`;
+
+    if (!env.google.configured) {
+      return redirect(`${backTo}?error=google_not_configured`);
+    }
+
+    // Linking requires a signed-in user; the user id is bound into the signed
+    // transaction cookie so the callback links to whoever initiated the flow.
+    let sessionUserId: string | undefined;
+    if (linkMode) {
+      const context = await getAuthContext(req);
+      if (!context) return redirect(`${env.appBaseUrl}/login`);
+      sessionUserId = context.user.id;
+    }
+
+    const state = generateState();
+    const pkce = generatePkce();
+    const txToken = await signOAuthTx({
+      mode: linkMode ? "LINK" : "LOGIN",
+      state,
+      codeVerifier: pkce.verifier,
+      ...(sessionUserId ? { userId: sessionUserId } : {}),
+    });
+
+    const authUrl = buildGoogleAuthUrl({
+      clientId: env.google.clientId,
+      redirectUri: `${env.appBaseUrl}${GOOGLE_REDIRECT_PATH}`,
+      state,
+      codeChallenge: pkce.challenge,
+    });
+
+    const res = redirect(authUrl);
+    return setOAuthTxCookie(res, txToken);
+  } catch (err) {
+    return fail(err, newRequestId());
+  }
+});
+
+auth.get("/auth/google/callback", async (c) => {
+  const req = c.req.raw;
+  const requestId = newRequestId();
+  try {
+    const ip = getClientIp(req);
+    authRateLimit(`google:${ip}`);
+
+    const url = new URL(req.url);
+    const code = url.searchParams.get("code");
+    const state = url.searchParams.get("state");
+    const googleError = url.searchParams.get("error");
+
+    const tx = await verifyOAuthTx(readOAuthTxCookie(req));
+    const linkMode = tx?.mode === "LINK";
+    const backTo = linkMode ? `${env.appBaseUrl}/dashboard/settings` : `${env.appBaseUrl}/login`;
+    const redirectTo = (path: string) => clearOAuthTxCookie(redirect(path));
+
+    if (googleError) return redirectTo(`${backTo}?error=google_cancelled`);
+    // The transaction is validated before anything else so a forged or
+    // replayed callback is refused identically whether Google is configured.
+    if (!code || !state || !tx || tx.state !== state) return redirectTo(`${backTo}?error=google_state`);
+    if (!env.google.configured) return redirectTo(`${backTo}?error=google_not_configured`);
+
+    const { idToken } = await exchangeGoogleCode({
+      clientId: env.google.clientId,
+      clientSecret: env.google.clientSecret,
+      code,
+      codeVerifier: tx.codeVerifier,
+      redirectUri: `${env.appBaseUrl}${GOOGLE_REDIRECT_PATH}`,
+    });
+    const claims = await verifyGoogleIdToken(idToken, env.google.clientId);
+    const email = claims.email ? normalizeEmailForMatch(claims.email) : null;
+
+    const toExisting = (u: {
+      id: string;
+      status: string;
+      deletedAt: Date | null;
+      emailVerifiedAt: Date | null;
+    }): ExistingUserInput => ({
+      id: u.id,
+      status: u.status === "DISABLED" ? "DISABLED" : "ACTIVE",
+      deletedAt: u.deletedAt,
+      emailVerified: u.emailVerifiedAt !== null,
+    });
+
+    const identityRow = await prisma.userIdentity.findUnique({
+      where: { provider_providerSubject: { provider: "google", providerSubject: claims.subject } },
+      include: { user: { select: { id: true, status: true, deletedAt: true, emailVerifiedAt: true } } },
+    });
+    const identityOwner = identityRow ? toExisting(identityRow.user) : null;
+
+    let userByEmail: ExistingUserInput | null = null;
+    if (!linkMode && email && !identityOwner) {
+      const row = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, status: true, deletedAt: true, emailVerifiedAt: true },
+      });
+      userByEmail = row ? toExisting(row) : null;
+    }
+
+    // LINK flows bind the initiating user at start; confirm the account is
+    // still usable so identities are never attached to dead accounts.
+    let sessionUserId: string | null = null;
+    if (linkMode) {
+      if (!tx.userId) return redirectTo(`${backTo}?error=google_state`);
+      const row = await prisma.user.findUnique({
+        where: { id: tx.userId },
+        select: { id: true, status: true, deletedAt: true },
+      });
+      if (!row || row.deletedAt !== null || row.status !== "ACTIVE") {
+        return redirectTo(`${env.appBaseUrl}/login`);
+      }
+      sessionUserId = row.id;
+    }
+
+    const decision = decideGoogleAction({
+      mode: linkMode ? "LINK" : "LOGIN",
+      profile: { subject: claims.subject, email, emailVerified: claims.emailVerified },
+      identityOwner,
+      userByEmail,
+      sessionUserId,
+      privateMode: env.privateMode,
+    });
+
+    const ua = req.headers.get("user-agent") ?? undefined;
+
+    if (decision.action === "REFUSE") {
+      return redirectTo(`${backTo}?error=${GOOGLE_REFUSAL_CODES[decision.reason]}`);
+    }
+
+    if (decision.action === "LINK") {
+      const created = await prisma.userIdentity.create({
+        data: {
+          userId: decision.userId,
+          provider: "google",
+          providerSubject: claims.subject,
+          emailAtLink: email ?? "",
+        },
+      });
+      await writeAudit({
+        userId: decision.userId,
+        action: AUDIT_ACTIONS.GOOGLE_LINK,
+        entityType: "UserIdentity",
+        entityId: created.id,
+        ip,
+        userAgent: ua,
+      });
+      return redirectTo(`${env.appBaseUrl}/dashboard/settings?linked=google`);
+    }
+
+    if (decision.action === "CREATE") {
+      // Google-only account: the password hash is bcrypt of a random 48-byte
+      // token, so password login is impossible until the user sets a real
+      // password through the (email-verified) forgot-password flow.
+      const passwordHash = await hashPassword(randomToken(48));
+      const name = claims.name?.trim() || (email ? email.split("@")[0]! : "New user");
+      const user = await prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: { email: email!, name, passwordHash, emailVerifiedAt: new Date() },
+        });
+        await tx.userProfile.create({ data: { userId: created.id, financialMonthStartDay: 1 } });
+        await tx.userIdentity.create({
+          data: {
+            userId: created.id,
+            provider: "google",
+            providerSubject: claims.subject,
+            emailAtLink: email!,
+          },
+        });
+        return created;
+      });
+
+      const device = await upsertDevice(user.id, {}, ip, ua);
+      const session = await createSession(user.id, device.id, true);
+      const accessToken = await signAccessToken({ sub: user.id, sid: session.sessionId, did: device.id });
+      await writeAudit({
+        userId: user.id,
+        action: AUDIT_ACTIONS.GOOGLE_SIGNUP,
+        entityType: "User",
+        entityId: user.id,
+        ip,
+        userAgent: ua,
+      });
+
+      const res = redirect(`${env.appBaseUrl}/dashboard`);
+      setAuthCookies(res, accessToken, session.refreshToken, true);
+      return clearOAuthTxCookie(res);
+    }
+
+    // LOGIN (with or without auto-link)
+    if (decision.autoLink) {
+      const created = await prisma.userIdentity
+        .create({
+          data: {
+            userId: decision.userId,
+            provider: "google",
+            providerSubject: claims.subject,
+            emailAtLink: email ?? "",
+          },
+        })
+        .catch(() => null); // unique race: linked concurrently — treat as linked
+      if (created) {
+        await writeAudit({
+          userId: decision.userId,
+          action: AUDIT_ACTIONS.GOOGLE_LINK,
+          entityType: "UserIdentity",
+          entityId: created.id,
+          ip,
+          userAgent: ua,
+        });
+      }
+    }
+
+    const device = await upsertDevice(decision.userId, {}, ip, ua);
+    const session = await createSession(decision.userId, device.id, true);
+    const accessToken = await signAccessToken({ sub: decision.userId, sid: session.sessionId, did: device.id });
+    await writeAudit({
+      userId: decision.userId,
+      action: AUDIT_ACTIONS.GOOGLE_LOGIN,
+      entityType: "Device",
+      entityId: device.id,
+      ip,
+      userAgent: ua,
+    });
+
+    const res = redirect(`${env.appBaseUrl}/dashboard`);
+    setAuthCookies(res, accessToken, session.refreshToken, true);
+    return clearOAuthTxCookie(res);
+  } catch (err) {
+    return fail(err, requestId);
+  }
+});
+
+/** Lists the social identities connected to the signed-in account. */
+auth.get("/auth/identities", async (c) => {
+  const requestId = newRequestId();
+  const req = c.req.raw;
+  try {
+    const context = await requireUser(req);
+    const rows = await prisma.userIdentity.findMany({
+      where: { userId: context.user.id },
+      orderBy: { createdAt: "asc" },
+    });
+    return ok({
+      identities: rows.map((row) => ({
+        provider: row.provider,
+        emailAtLink: row.emailAtLink,
+        linkedAt: row.createdAt.toISOString(),
+      })),
+    });
+  } catch (err) {
+    return fail(err, requestId);
+  }
+});
+
+const unlinkIdentitySchema = z.object({ password: z.string().min(1) });
+
+/**
+ * Disconnects a social identity. Re-authentication with the account password
+ * is required, so Google-only accounts (whose stored hash is unguessable)
+ * must first set a password through the forgot-password flow.
+ */
+auth.delete("/auth/identities/:provider", async (c) => {
+  const requestId = newRequestId();
+  const req = c.req.raw;
+  try {
+    const context = await requireUser(req);
+    const ip = getClientIp(req);
+    authRateLimit(`unlink:${context.user.id}:${ip}`);
+
+    const raw = await parseJson(req);
+    const input = validate(unlinkIdentitySchema, raw);
+
+    const identity = await prisma.userIdentity.findFirst({
+      where: { userId: context.user.id, provider: c.req.param("provider") },
+    });
+    if (!identity) {
+      throw new AppError(ErrorCodes.NOT_FOUND, "This account is not connected.", 404);
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: context.user.id },
+      select: { passwordHash: true },
+    });
+    if (!user || !(await verifyPassword(input.password, user.passwordHash))) {
+      throw new AppError(ErrorCodes.INVALID_CREDENTIALS, "Incorrect password.", 401);
+    }
+
+    await prisma.userIdentity.delete({ where: { id: identity.id } });
+    await writeAudit({
+      userId: context.user.id,
+      action: AUDIT_ACTIONS.GOOGLE_UNLINK,
+      entityType: "UserIdentity",
+      entityId: identity.id,
+      ip,
+    });
+
+    return ok({ unlinked: true, provider: identity.provider });
   } catch (err) {
     return fail(err, requestId);
   }

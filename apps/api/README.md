@@ -21,6 +21,10 @@ Every endpoint lives under `/api` and speaks the shared JSON envelope
 - `POST /api/auth/register|login|refresh|logout|logout-all`
 - `GET|PATCH /api/auth/me`, `POST /api/auth/forgot-password|reset-password|
   verify-email|resend-verification`, `GET|POST /api/auth/devices`
+- `GET /api/auth/google/start|callback` (redirect-based; PKCE S256, signed
+  transaction cookie), `GET /api/auth/identities`,
+  `DELETE /api/auth/identities/:provider` (password re-auth; Google-only
+  accounts must set a password first)
 - `GET|POST /api/accounts`, `GET|PATCH /api/accounts/:id`
 - `GET|POST /api/transactions`, `PATCH|DELETE /api/transactions/:id`
 - `GET|POST /api/transfers`, `PATCH|DELETE /api/transfers/:id`
@@ -70,4 +74,7 @@ Render runs `node dist/server.js` behind TLS with `PORT` injected; see
 [docs/deployment.md](../../docs/deployment.md). Required env:
 `DATABASE_URL` (Neon), `AUTH_JWT_SECRET`, `APP_BASE_URL` (the **web app's**
 https URL — Vercel). Optional: `ALLOWED_ORIGINS` (extra accepted origins,
-comma separated), `PRIVATE_MODE`, `AUTH_REFRESH_TTL_DAYS`, `SMTP_*`.
+comma separated), `PRIVATE_MODE`, `AUTH_REFRESH_TTL_DAYS`,
+`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` ("Continue with Google"; the
+authorized redirect URI is `<APP_BASE_URL>/api/auth/google/callback`),
+`SMTP_*`.

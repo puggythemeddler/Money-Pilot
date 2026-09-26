@@ -1,21 +1,35 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerUser, serverFetch } from "@/lib/server-api";
+import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConnectedAccountsSection, type ConnectedIdentity } from "@/components/settings/ConnectedAccountsSection";
 import { DevicesSection, type SettingsDevice } from "@/components/settings/DevicesSection";
 import { ProfileForm } from "@/components/settings/ProfileForm";
 import { PrivacySection } from "@/components/settings/PrivacySection";
+import { oauthErrorMessage } from "@/lib/oauth-errors";
 
 export const metadata: Metadata = {
   title: "Settings",
   robots: { index: false, follow: false },
 };
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ linked?: string; error?: string }>;
+}) {
   const auth = await getServerUser();
   if (!auth) redirect("/login");
 
-  const { devices } = await serverFetch<{ devices: SettingsDevice[] }>("/api/auth/devices");
+  const { linked, error } = await searchParams;
+  const errorMessage = oauthErrorMessage(error);
+  const linkedMessage = linked === "google" ? "Google was connected to this account." : null;
+
+  const [{ devices }, { identities }] = await Promise.all([
+    serverFetch<{ devices: SettingsDevice[] }>("/api/auth/devices"),
+    serverFetch<{ identities: ConnectedIdentity[] }>("/api/auth/identities"),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -23,6 +37,9 @@ export default async function SettingsPage() {
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Settings</h1>
         <p className="text-sm text-slate-500">Profile, preferences, security and devices.</p>
       </header>
+
+      {errorMessage ? <Alert variant="error">{errorMessage}</Alert> : null}
+      {linkedMessage ? <Alert variant="success">{linkedMessage}</Alert> : null}
 
       <Card>
         <CardHeader>
@@ -52,6 +69,19 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent>
           <DevicesSection initialDevices={devices} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Connected accounts</CardTitle>
+          <CardDescription>
+            Social sign-in providers linked to this account. Disconnecting asks for your
+            password first.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ConnectedAccountsSection initialIdentities={identities} />
         </CardContent>
       </Card>
 
