@@ -8,12 +8,13 @@ Everything you record stays yours. The product deliberately avoids unsolicited m
 no ads, no data brokerage, no financial product upsells. It only spends from an optional
 monthly core budget you choose explicitly.
 
-> Status: **Phase 2 — financial engine (productionizing).** Authentication, invite-only mode, admin foundation,
-> data export / account deletion, accounts, categories, transactions, income/expenses and
-> transfers are implemented and end-to-end tested. Budgets, debts and reports land later.
-> CI/CD (lint/typecheck/tests/build, dependency audit, Semgrep, optional Snyk, Playwright
-> browser e2e) and the Render + Neon deployment path are in place — see
-> [DESIGN.md](DESIGN.md) for the design system.
+> Status: **Phase 2 complete — production-ready.** Authentication, invite-only mode, admin
+> foundation, data export / account deletion, accounts, categories, transactions,
+> income/expenses, transfers, budgets, debts and recurring bills are implemented and
+> end-to-end tested. CI is fully green (lint/typecheck/unit tests/build, dependency audit,
+> Semgrep, Playwright browser e2e, optional Snyk) and the Render + Neon deployment path is
+> ready — see [docs/deployment.md](docs/deployment.md) and [DESIGN.md](DESIGN.md).
+> Next up: shared households with joint accounts for families/couples (see the roadmap).
 
 ## Stack
 
@@ -25,7 +26,7 @@ monthly core budget you choose explicitly.
 | Auth       | bcrypt (12 rounds), 15-minute HMAC access JWTs, opaque rotating refresh tokens |
 | Validation | Zod schemas in `packages/shared`                                  |
 | Styling    | Tailwind CSS v4                                                   |
-| Monorepo   | Turborepo; `apps/web` (app) and `packages/shared` (shared code)   |
+| Monorepo   | Turborepo; `apps/web` (app), `apps/e2e` (browser e2e), `packages/shared` (shared code) |
 
 ## Money model
 
@@ -71,14 +72,16 @@ Formatting back to a currency string uses `formatMoney`.
 ## Repository layout
 
 ```
-apps/web          Next.js application (UI + API routes)
+apps/web          Next.js application (UI + API routes) — see apps/web/README.md
   prisma/schema.prisma        Canonical PostgreSQL schema (production migrations)
   prisma/schema.sqlite.prisma Generated SQLite twin (local dev + e2e; regenerate via db:schema:sqlite)
   scripts/                   db twin generator, prod env check, e2e server, admin bootstrap
   src/lib/finance     Financial domain services (ownership + audit on every write)
-  src/app/api/finance   API routes: accounts, categories, transactions, transfers, dashboard
-apps/e2e          Playwright browser e2e suite (Chromium; boots its own disposable app+DB)
-packages/shared   Shared domain rules: money (minor units), currency, zod schemas, error contract
+  src/app/api/…       Route handlers: auth, accounts, categories, transactions, transfers,
+                     budgets, debts, bills, dashboard, admin, users
+apps/e2e          Playwright browser e2e suite (Chromium) — see apps/e2e/README.md
+packages/shared   Shared domain rules: money (minor units), currency, FX, zod schemas,
+                  error contract — see packages/shared/README.md
 scripts/audit.mjs Dependency-audit CI gate (npm audit + reviewed allowlist)
 security/semgrep-rules.yml  Custom static-analysis security rules (clean on main)
 DESIGN.md         Design system guide (tokens, primitives, financial-UI rules)
@@ -152,7 +155,7 @@ All live under `apps/web/.env` (see `apps/web/.env.example`).
 | `PRIVATE_MODE`                 | `true` = invite-only registration                              | `false`            |
 | `SEED_ADMIN_EMAIL`             | Bootstrap admin email (read by the bootstrap script)           | —                  |
 | `SEED_ADMIN_PASSWORD`          | Password for the bootstrap admin account                       | —                  |
-| `RATE_LIMIT_AUTH_MAX`          | Auth request cap per IP per window                             | `50`               |
+| `RATE_LIMIT_AUTH_MAX`          | Auth request cap per IP per window                             | `20`               |
 | `RATE_LIMIT_AUTH_WINDOW_SECONDS` | Auth rate-limit window                                          | `60`               |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` | SMTP for email delivery; falls back to console | — |
 
@@ -217,8 +220,9 @@ and can be re-run — subsequent runs are a no-op.
 
 ## API
 
-Everything under `/api/finance` requires an authenticated session. Money amounts accept a
-decimal number or string and are always validated with the shared Zod schemas.
+All routes below require an authenticated session (`/api/health` and the
+`/api/auth/*` endpoints excepted). Money amounts accept a decimal number or
+string and are always validated with the shared Zod schemas.
 
 | Route                          | Methods            | Description                               |
 | ------------------------------ | ------------------ | ----------------------------------------- |
@@ -229,7 +233,13 @@ decimal number or string and are always validated with the shared Zod schemas.
 | `/api/transactions`            | `GET`, `POST`      | List with filters (`kind`,`account`,`category`,`from`,`to`,`q`), create |
 | `/api/transactions/:id`        | `PATCH`, `DELETE`  | Update, soft-delete (deletes transfer bundle) |
 | `/api/transfers`               | `GET`, `POST`      | List, create (atomic two-leg transfer)    |
-| `/api/transfers/:id`           | `DELETE`           | Soft-delete transfer + both legs          |
+| `/api/transfers/:id`           | `PATCH`, `DELETE`  | Edit in place, soft-delete transfer + both legs |
+| `/api/budgets`                 | `GET`, `POST`      | List, create monthly budget               |
+| `/api/budgets/:id`             | `PATCH`            | Update/archive                            |
+| `/api/debts`                   | `GET`, `POST`      | List, create debt (tracked, not traded)   |
+| `/api/debts/:id`               | `PATCH`            | Update/archive                            |
+| `/api/bills`                   | `GET`, `POST`      | List, create recurring bill              |
+| `/api/bills/:id`               | `PATCH`, `POST`    | Update/archive, record a payment           |
 | `/api/dashboard`               | `GET`              | Overview summary for the dashboard        |
 
 Every write is recorded in the audit log with the acting user, entity and context. All queries
@@ -310,13 +320,18 @@ Each phase is finished only when the following all pass:
    recurring bills — modeling, services, API, UI, tests all complete. Currency-universal:
    every African ISO 4217 currency works end-to-end (per-currency parsing, formatting,
    budgets, debts, bills, cross-currency transfers).
-3. **Budgets & goals** *(partial)* — monthly budgets are done; savings/spending goals and
+3. **Shared households** *(next)* — every user already gets a fully isolated personal
+   ledger (cross-user access is tested to return 404). This phase adds households: a
+   shared space for a family or couple with joint accounts both can see and record into,
+   invitations + member management, and a combined household view. Personal accounts
+   stay private by default — sharing is opt-in per account.
+4. **Budgets & goals** *(partial)* — monthly budgets are done; savings/spending goals and
    budget rollovers are still to come.
-4. **Debts & investments** *(partial)* — debt tracking is done ("tracked, not traded" — no
+5. **Debts & investments** *(partial)* — debt tracking is done ("tracked, not traded" — no
    money movement); payoff plans, installments, and investments are still to come.
-5. **Reports & insights** — analytics, charts, exports.
-6. **Mobile apps** — Android/iOS companion clients.
-7. **Hardening & subscriptions** — optional paid tiers for hosting/storage only.
+6. **Reports & insights** — analytics, charts, exports.
+7. **Mobile apps** — Android/iOS companion clients.
+8. **Hardening & subscriptions** — optional paid tiers for hosting/storage only.
 
 Out of scope by design: cryptocurrency, securities trading, an insurance marketplace,
 third-party payment processing, social networking, and an unsolicited advisory engine.
