@@ -119,6 +119,15 @@ These are invariants, not preferences:
    the first one.", with a link to the action that fixes it.
 7. **Destructive or derived-honest actions** (archive, delete) keep history
    intact and say so; confirmations are inline, not modal.
+8. **Shared-household items are labeled, never silently mixed**: joint
+   accounts carry a teal `Shared · <household>` chip, shared transactions a
+   `Shared · <recorder>` chip (attribution), and account selects append
+   `· shared`. Household-scope money keeps the same rules as personal money —
+   `formatMoney`, explicit signs, `tabular-nums`.
+9. **Privacy is visible in the UI**: the household page states that personal
+   accounts stay private; the invite link is shown exactly once with a copy
+   button (only its digest is stored); the dashboard household card links to
+   the shared view instead of mixing totals into the personal summary.
 
 ## 6. Motion
 

@@ -14,6 +14,7 @@ export interface AccountOption {
   id: string;
   name: string;
   currency: string;
+  shared?: boolean;
 }
 
 export interface CategoryOption {
@@ -33,6 +34,10 @@ export interface TransactionItem {
   transactionDate: string;
   accountId: string;
   accountName: string;
+  /** True when the transaction sits on a household joint account. */
+  shared: boolean;
+  /** The member who recorded the transaction (shown for shared entries). */
+  recordedByName: string | null;
   categoryId: string | null;
   categoryName: string | null;
   categoryColor: string | null;
@@ -162,7 +167,7 @@ export function TransactionsManager({ items, total, accounts, categories, filter
                 </option>
                 {accounts.map((a) => (
                   <option key={a.id} value={a.id}>
-                    {a.name} ({a.currency})
+                    {a.name} ({a.currency}){a.shared ? " · shared" : ""}
                   </option>
                 ))}
               </Select>
@@ -350,6 +355,11 @@ export function TransactionsManager({ items, total, accounts, categories, filter
                       ) : null}
                       {t.kind === "TRANSFER" ? (
                         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">Transfer</span>
+                      ) : null}
+                      {t.shared ? (
+                        <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700">
+                          Shared{t.recordedByName ? ` · ${t.recordedByName}` : ""}
+                        </span>
                       ) : null}
                     </div>
                     <p className="mt-0.5 text-xs text-slate-400">

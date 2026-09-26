@@ -59,27 +59,33 @@ src/
     api/auth/…             login, register, refresh, logout(-all), devices,
                            verify-email, forgot/reset-password, me
     api/accounts|categories|transactions|transfers|
-       budgets|debts|bills|dashboard/
-                           finance endpoints (see the root README API table)
+       budgets|debts|bills|dashboard|household/
+                            finance endpoints (see the root README API table)
     api/admin/…            invitations + user list (ADMIN role only)
     api/users/…            data export, account deletion
     api/health             unauthenticated health probe (Render + e2e)
   lib/
     auth.ts, sessions.ts, tokens.ts, jwt.ts, password.ts, cookies.ts
-                           session auth: bcrypt, 15-min HMAC access JWTs,
-                           opaque rotating refresh tokens, __Host- cookies
+                            session auth: bcrypt, 15-min HMAC access JWTs,
+                            opaque rotating refresh tokens, __Host- cookies
     rateLimit.ts           in-memory per-IP auth rate limiting
     env.ts                 central env config + production guards
     api.ts                 route-handler helpers (ok/fail, zod validation,
                            request ids; errors never leak internals)
-    finance/               domain services — every query is scoped to the
-                           owning user, every write lands in the audit log:
-                           accounts, transactions, transfers, budgets, debts,
-                           bills, categories, dashboard, balances (derived,
-                           never stored), dates
+    finance/               domain services — every query is scoped to what
+                           the acting user may see, every write lands in the
+                           audit log: accounts, transactions, transfers,
+                           budgets, debts, bills, categories, dashboard,
+                           balances (derived, never stored), dates
+    finance/households.ts  households: the single visibility choke point
+                           (resolveAccountForUser / visibleAccountWhere) used
+                           by every finance service, plus household lifecycle,
+                           invites (digest-stored), permissions, joint accounts,
+                           and the aggregated household overview
     audit.ts               audit-log writer
     mail.ts / email.ts     SMTP with console fallback
-  components/              UI (finance managers, auth forms, nav, primitives)
+  components/              UI (finance managers, household manager + invite
+                           accept, auth forms, nav, primitives)
   middleware.ts            auth gate + CSRF origin check + security headers
 scripts/
   make-sqlite-schema.mjs    generates the SQLite twin

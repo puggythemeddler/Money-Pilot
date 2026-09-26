@@ -8,6 +8,7 @@ const realNav = [
   { href: "/dashboard/accounts", label: "Accounts", icon: Icons.wallet },
   { href: "/dashboard/transactions", label: "Transactions", icon: Icons.receipt },
   { href: "/dashboard/transfers", label: "Transfers", icon: Icons.swap },
+  { href: "/dashboard/household", label: "Household", icon: Icons.users },
   { href: "/dashboard/budgets", label: "Budgets", icon: Icons.target },
   { href: "/dashboard/debts", label: "Debts", icon: Icons.scale },
   { href: "/dashboard/bills", label: "Bills", icon: Icons.calendar },

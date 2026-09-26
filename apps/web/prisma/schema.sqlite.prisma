@@ -6,7 +6,7 @@
 // ------------------------------------------------------------------
 
 // ------------------------------------------------------------------
-// MoneyPilot database schema — Phase 2 (identity, sessions, finance)
+// MoneyPilot database schema — Phase 3 (identity, sessions, finance, households)
 //
 // PRODUCTION:  provider is "postgresql" (canonical). Deployments run
 //              `prisma migrate deploy` against PostgreSQL (Neon); see
@@ -72,8 +72,68 @@ model User {
   debts                Debt[]
   bills                Bill[]
   billPayments         BillPayment[]
+  householdMembership  HouseholdMember?
 
   @@map("users")
+}
+
+/// A shared household (family or couple): the container for joint accounts.
+/// Members share only the household's joint accounts — personal ledgers stay
+/// private. One household per user (unique member userId). Households are
+/// archive-only: when the last member leaves, the household and its joint
+/// accounts are archived so history is never destroyed.
+model Household {
+  id         String    @id @default(cuid())
+  name       String
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  members  HouseholdMember[]
+  invites  HouseholdInvite[]
+  accounts Account[]
+
+  @@map("households")
+}
+
+/// Membership in a household. `role` OWNER | MEMBER: the owner manages the
+/// household (rename, invites, member permissions, joint account lifecycle).
+/// `canRecord` is the per-member write permission on the household's joint
+/// accounts; read access is inherent to membership. Leaving or being removed
+/// deletes the row — the audit log retains the history.
+model HouseholdMember {
+  id          String   @id @default(cuid())
+  householdId String
+  userId      String   @unique
+  role        String   @default("MEMBER") // OWNER | MEMBER
+  canRecord   Boolean  @default(true)
+  joinedAt    DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@map("household_members")
+}
+
+/// Single-use invitation to join a household. The owner shares the plain token
+/// as a link; only its SHA-256 digest is stored. `canRecord` is the write
+/// permission the joining member receives on accepting.
+model HouseholdInvite {
+  id             String    @id @default(cuid())
+  householdId    String
+  tokenHash      String    @unique
+  canRecord      Boolean   @default(true)
+  status         String    @default("PENDING") // PENDING | ACCEPTED | REVOKED
+  expiresAt      DateTime
+  usedAt         DateTime?
+  acceptedUserId String?
+  createdAt      DateTime  @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, status])
+  @@map("household_invites")
 }
 
 /// Extended profile / preferences for a user.
@@ -202,9 +262,15 @@ model AuditLog {
 /// A money account the user tracks (cash, M-Pesa, bank...). Balances are never
 /// stored: they are derived as `openingBalance + sum(open signed transactions)`
 /// so the transaction log is the single source of truth.
+///
+/// `householdId` is null for a personal account owned by `userId`. When set,
+/// the account is a joint account of that household: visible to every member
+/// (writable to members with record permission), while `userId` keeps
+/// recording the creating member (the household owner) for attribution.
 model Account {
   id                  String    @id @default(cuid())
   userId              String
+  householdId         String?
   name                String
   type                String    @default("BANK") // CASH | BANK | MPESA | SAVINGS | CREDIT | OTHER
   currency            String    @default("KES")
@@ -214,12 +280,14 @@ model Account {
   updatedAt           DateTime  @updatedAt
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  household    Household?    @relation(fields: [householdId], references: [id])
   transactions Transaction[]
   transfersOut Transfer[]    @relation("TransferFrom")
   transfersIn  Transfer[]    @relation("TransferTo")
 
   @@unique([userId, name])
   @@index([userId, archivedAt])
+  @@index([householdId])
   @@map("accounts")
 }
 

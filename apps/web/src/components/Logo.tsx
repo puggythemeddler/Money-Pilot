@@ -137,4 +137,12 @@ export const Icons = {
       <path d="M8 14h3M13 14h3M8 17h3" />
     </svg>
   ),
+  users: (props: SVGProps<SVGSVGElement>) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 19.5a6.5 6.5 0 0 1 13 0" />
+      <circle cx="17.5" cy="9.5" r="2.5" />
+      <path d="M15.8 14.9a5 5 0 0 1 5.7 4.6" />
+    </svg>
+  ),
 };

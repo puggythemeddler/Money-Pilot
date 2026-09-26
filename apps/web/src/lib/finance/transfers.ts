@@ -13,7 +13,7 @@ import type { z } from "zod";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { AUDIT_ACTIONS } from "@/lib/constants";
-import { getOwnedAccount } from "./accounts";
+import { getMembership, resolveAccountForUser, visibleAccountWhere } from "./households";
 import { toUtcMidnight } from "./dates";
 
 export type TransferCreateInput = z.infer<typeof transferCreateSchema>;
@@ -39,15 +39,50 @@ export interface TransferItem {
   createdAt: string;
 }
 
-function getOwnedTransfer(userId: string, transferId: string) {
-  return prisma.transfer.findFirst({
-    where: { id: transferId, userId },
-    include: {
-      fromAccount: true,
-      toAccount: true,
-      transactions: { select: { accountId: true, amountMinor: true, currency: true } },
-    },
-  });
+/**
+ * Fetches a transfer the user can act on. A transfer is visible when BOTH of
+ * its accounts are visible (a personal account and the household's joint
+ * account, both personal, or both joint); writes additionally require record
+ * permission on the joint side. Anything else is a 404.
+ */
+async function getAccessibleTransfer(
+  userId: string,
+  transferId: string,
+  opts: { write?: boolean } = {},
+) {
+  const [row, membership] = await Promise.all([
+    prisma.transfer.findFirst({
+      where: { id: transferId, deletedAt: null },
+      include: {
+        fromAccount: true,
+        toAccount: true,
+        transactions: { select: { accountId: true, amountMinor: true, currency: true } },
+      },
+    }),
+    getMembership(userId),
+  ]);
+  if (!row) {
+    throw new AppError(ErrorCodes.NOT_FOUND, "Transfer not found.", 404);
+  }
+  const canSee = (account: { userId: string; householdId: string | null }) =>
+    account.householdId === null
+      ? account.userId === userId
+      : membership?.householdId === account.householdId;
+  const canUse = (account: { userId: string; householdId: string | null }) =>
+    account.householdId === null
+      ? account.userId === userId
+      : membership?.householdId === account.householdId && membership.canRecord === true;
+  if (!canSee(row.fromAccount) || !canSee(row.toAccount)) {
+    throw new AppError(ErrorCodes.NOT_FOUND, "Transfer not found.", 404);
+  }
+  if (opts.write && (!canUse(row.fromAccount) || !canUse(row.toAccount))) {
+    throw new AppError(
+      ErrorCodes.FORBIDDEN,
+      "You have read-only access to this household's shared accounts.",
+      403,
+    );
+  }
+  return row;
 }
 
 /**
@@ -93,8 +128,16 @@ function legAmounts(opts: {
 }
 
 export async function listTransfers(userId: string) {
+  // A transfer is listed when BOTH of its accounts are visible to the user
+  // (their personal accounts and/or their household's joint accounts).
+  const membership = await getMembership(userId);
+  const visible = await prisma.account.findMany({
+    where: visibleAccountWhere(userId, membership),
+    select: { id: true },
+  });
+  const visibleIds = visible.map((a) => a.id);
   const rows = await prisma.transfer.findMany({
-    where: { userId, deletedAt: null },
+    where: { fromAccountId: { in: visibleIds }, toAccountId: { in: visibleIds }, deletedAt: null },
     include: {
       fromAccount: { select: { name: true } },
       toAccount: { select: { name: true } },
@@ -144,8 +187,8 @@ export async function createTransfer(
   }
 
   const [fromAccount, toAccount] = await Promise.all([
-    getOwnedAccount(userId, input.fromAccountId),
-    getOwnedAccount(userId, input.toAccountId),
+    resolveAccountForUser(userId, input.fromAccountId, { write: true }),
+    resolveAccountForUser(userId, input.toAccountId, { write: true }),
   ]);
   if (fromAccount.archivedAt !== null || toAccount.archivedAt !== null) {
     throw new AppError(ErrorCodes.FORBIDDEN, "Archived accounts cannot be used for transfers.", 400);
@@ -262,10 +305,7 @@ export async function updateTransfer(
   input: TransferUpdateInput,
   audit: { ip?: string; userAgent?: string },
 ) {
-  const existing = await getOwnedTransfer(userId, transferId);
-  if (!existing || existing.deletedAt !== null) {
-    throw new AppError(ErrorCodes.NOT_FOUND, "Transfer not found.", 404);
-  }
+  const existing = await getAccessibleTransfer(userId, transferId, { write: true });
 
   const fromAccount = existing.fromAccount;
   const toAccount = existing.toAccount;
@@ -352,10 +392,7 @@ export async function deleteTransfer(
   transferId: string,
   audit: { ip?: string; userAgent?: string },
 ): Promise<void> {
-  const transfer = await prisma.transfer.findFirst({ where: { id: transferId, userId } });
-  if (!transfer || transfer.deletedAt !== null) {
-    throw new AppError(ErrorCodes.NOT_FOUND, "Transfer not found.", 404);
-  }
+  await getAccessibleTransfer(userId, transferId, { write: true });
   await prisma.$transaction([
     prisma.transfer.update({ where: { id: transferId }, data: { deletedAt: new Date() } }),
     prisma.transaction.updateMany({

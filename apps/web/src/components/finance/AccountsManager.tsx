@@ -20,6 +20,9 @@ export interface AccountRow {
   openingBalanceMinor: number;
   balanceMinor: number;
   archived: boolean;
+  /** True for household joint accounts (managed on the Household page). */
+  shared?: boolean;
+  householdName?: string | null;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -160,6 +163,11 @@ export function AccountsManager({ accounts }: { accounts: AccountRow[] }) {
                           Archived
                         </span>
                       ) : null}
+                      {row.shared ? (
+                        <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700">
+                          Shared{row.householdName ? ` · ${row.householdName}` : ""}
+                        </span>
+                      ) : null}
                     </div>
                     <p className="mt-0.5 text-xs text-slate-400">
                       Opening balance {formatMoney(row.openingBalanceMinor, row.currency)}
@@ -169,15 +177,19 @@ export function AccountsManager({ accounts }: { accounts: AccountRow[] }) {
                     <p className="text-sm font-semibold tabular-nums text-slate-900">
                       {formatMoney(row.balanceMinor, row.currency)}
                     </p>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleArchived(row)}
-                      disabled={busyId !== null}
-                      loading={busyId === row.id}
-                    >
-                      {row.archived ? "Unarchive" : "Archive"}
-                    </Button>
+                    {row.shared ? (
+                      <span className="text-xs text-slate-400">Managed in Household</span>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleArchived(row)}
+                        disabled={busyId !== null}
+                        loading={busyId === row.id}
+                      >
+                        {row.archived ? "Unarchive" : "Archive"}
+                      </Button>
+                    )}
                   </div>
                 </li>
               ))}

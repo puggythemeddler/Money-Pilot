@@ -11,7 +11,7 @@ import type { z } from "zod";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { AUDIT_ACTIONS } from "@/lib/constants";
-import { getOwnedAccount } from "./accounts";
+import { resolveAccountForUser } from "./households";
 import { getOwnedCategory } from "./categories";
 import { currentPeriod, toUtcMidnight } from "./dates";
 
@@ -186,7 +186,7 @@ export async function payBill(
   if (bill.archivedAt !== null) {
     throw new AppError(ErrorCodes.FORBIDDEN, "Archived bills cannot be paid.", 400);
   }
-  const account = await getOwnedAccount(userId, input.accountId);
+  const account = await resolveAccountForUser(userId, input.accountId, { write: true });
   if (account.archivedAt !== null) {
     throw new AppError(ErrorCodes.FORBIDDEN, "Archived accounts cannot receive payments.", 400);
   }

@@ -8,13 +8,13 @@ Everything you record stays yours. The product deliberately avoids unsolicited m
 no ads, no data brokerage, no financial product upsells. It only spends from an optional
 monthly core budget you choose explicitly.
 
-> Status: **Phase 2 complete — production-ready.** Authentication, invite-only mode, admin
-> foundation, data export / account deletion, accounts, categories, transactions,
-> income/expenses, transfers, budgets, debts and recurring bills are implemented and
-> end-to-end tested. CI is fully green (lint/typecheck/unit tests/build, dependency audit,
+> Status: **Phase 3 complete — production-ready with shared households.** Authentication,
+> invite-only mode, admin foundation, data export / account deletion, accounts, categories,
+> transactions, income/expenses, transfers, budgets, debts, recurring bills **and shared
+> households (joint accounts for families/couples with per-member permissions)** are implemented
+> and end-to-end tested. CI is fully green (lint/typecheck/unit tests/build, dependency audit,
 > Semgrep, Playwright browser e2e, optional Snyk) and the Render + Neon deployment path is
 > ready — see [docs/deployment.md](docs/deployment.md) and [DESIGN.md](DESIGN.md).
-> Next up: shared households with joint accounts for families/couples (see the roadmap).
 
 ## Stack
 
@@ -69,6 +69,30 @@ Formatting back to a currency string uses `formatMoney`.
 - Category `kind` must match the transaction kind (an expense cannot use an income category).
 - Archived accounts and categories can't receive new entries but stay visible with history.
 
+### Shared households (Phase 3)
+
+Personal ledgers stay private by default. A user can create a **household** (one per user) and
+add **joint accounts** that every member sees, with per-member permissions:
+
+- **Visibility rule (single choke point)**: an account is visible to a user when it is their own
+  personal account *or* a joint account of their household — `resolveAccountForUser` in
+  `apps/web/src/lib/finance/households.ts`. Everything else returns 404 (no existence leak).
+- **Recording**: joint accounts accept entries from members with the `canRecord` permission
+  (granted at invite time, changeable by the owner at any time); read-only members get 403 on
+  writes but full read access. Every entry stores its recorder for attribution ("recorded by").
+- **Transfers** are visible only when *both* accounts are visible — a member's transfer from
+  their private account into a joint account shows its in-leg and balance effect to others, but
+  never the transfer row (it names a private account).
+- **Dashboard stays personal**: totals, spending and recent activity count only personal
+  accounts; a household card links to the combined household view (month totals, per-member
+  spending, shared recent activity with attribution).
+- **Invitations**: single-use links valid 14 days; only the SHA-256 digest is stored (a leaked
+  database cannot leak live invites). Accepting is atomic — a failed join never burns the invite.
+- **Lifecycle**: the owner manages the household (rename, joint-account create/archive,
+  permissions, member removal). Any member may leave: an owner leaving passes ownership to the
+  longest-standing member; the last member leaving archives the household and its joint accounts
+  (history is never destroyed). Budgets, debts and bills stay personal this phase.
+
 ## Repository layout
 
 ```
@@ -77,8 +101,10 @@ apps/web          Next.js application (UI + API routes) — see apps/web/README.
   prisma/schema.sqlite.prisma Generated SQLite twin (local dev + e2e; regenerate via db:schema:sqlite)
   scripts/                   db twin generator, prod env check, e2e server, admin bootstrap
   src/lib/finance     Financial domain services (ownership + audit on every write)
+  src/lib/finance/households.ts  Household/membership resolver — the single choke point
+                      for account visibility across all finance services
   src/app/api/…       Route handlers: auth, accounts, categories, transactions, transfers,
-                     budgets, debts, bills, dashboard, admin, users
+                      budgets, debts, bills, dashboard, household, admin, users
 apps/e2e          Playwright browser e2e suite (Chromium) — see apps/e2e/README.md
 packages/shared   Shared domain rules: money (minor units), currency, FX, zod schemas,
                   error contract — see packages/shared/README.md
@@ -241,9 +267,18 @@ string and are always validated with the shared Zod schemas.
 | `/api/bills`                   | `GET`, `POST`      | List, create recurring bill              |
 | `/api/bills/:id`               | `PATCH`, `POST`    | Update/archive, record a payment           |
 | `/api/dashboard`               | `GET`              | Overview summary for the dashboard        |
+| `/api/household`               | `GET`, `POST`, `PATCH`, `DELETE` | Household view, create, rename (owner), leave |
+| `/api/household/overview`      | `GET`              | Aggregated shared finances (month totals, per-member spending, recent activity) |
+| `/api/household/accounts`      | `POST`             | Create a joint account (owner)           |
+| `/api/household/accounts/:id`  | `PATCH`            | Rename/archive a joint account (owner)   |
+| `/api/household/invites`       | `GET`, `POST`      | List (owner), create single-use invite link |
+| `/api/household/invites/:id`   | `DELETE`           | Revoke a pending invite (owner)          |
+| `/api/household/invites/accept` | `POST`            | Accept an invite token (atomic join)     |
+| `/api/household/members/:id`   | `PATCH`, `DELETE`  | Set `canRecord` (owner), remove member (owner) |
 
 Every write is recorded in the audit log with the acting user, entity and context. All queries
-are scoped to the authenticated user — cross-user access returns 404.
+are scoped to what the user may see — their personal accounts plus their household's joint
+accounts; anything else returns 404, and writes to shared accounts require record permission.
 
 ## Admin API
 
@@ -262,7 +297,7 @@ Only available to `ADMIN` users.
 npm run dev           # development servers
 npm run build         # production build (all workspaces)
 npm run test          # unit tests (packages/shared)
-npm run e2e           # Playwright browser e2e (apps/e2e; builds the app first if needed)
+npm run e2e           # Playwright browser e2e (apps/e2e; rebuilds the app every run)
 npm run lint          # eslint (all workspaces)
 npm run typecheck     # TypeScript checks (all workspaces)
 node scripts/audit.mjs  # dependency audit gate (what CI runs)
@@ -283,9 +318,9 @@ touched, and each test registers its own isolated user.
 
 Each phase is finished only when the following all pass:
 
-- [x] Unit tests (`packages/shared`) — 72 tests, exact money parsing, per-currency minor units,
-      FX rate conversion, currency registry & schemas
-- [x] TypeScript (`npm run typecheck`)
+- [x] Unit tests (`packages/shared`) — 84 tests, exact money parsing, per-currency minor units,
+      FX rate conversion, currency registry & schemas (finance + household schemas)
+      — TypeScript (`npm run typecheck`)
 - [x] ESLint (`npm run lint`)
 - [x] Production build (`npm run build`)
 - [x] API/DB consistency (PostgreSQL migrations: canonical schema with a single
@@ -294,13 +329,17 @@ Each phase is finished only when the following all pass:
 - [x] CI (GitHub Actions: lint, typecheck, unit tests, production build, dependency audit
       with reviewed allowlist, Semgrep custom + registry rules, Playwright e2e — see
       `.github/workflows/ci.yml`; optional Snyk workflow runs only with a `SNYK_TOKEN`)
-- [x] Playwright browser e2e (Chromium, 18 tests) — register/login/logout, invalid and
+- [x] Playwright browser e2e (Chromium, 23 tests) — register/login/logout, invalid and
       tampered sessions, protected-route redirects, account create/archive/rename,
       transactions + kind/search filters + API pagination, cross-currency amounts,
-      transfers (both legs), dashboard aggregation and empty states. Caught a real
+      transfers (both legs), dashboard aggregation and empty states, and households
+      (owner creates household + joint account + invite link, member joins via link,
+      records with attribution, read-only members blocked, personal-account privacy,
+      permission flips/removal, last-member-leave archives). Caught a real
       production bug before deploy: the CSRF origin check relied on Next's middleware URL,
       which is localhost-pinned under `next start` since 15.5 and would have rejected all
-      browser POSTs behind a proxy.
+      browser POSTs behind a proxy. Also caught a stale-`.next` footgun: the e2e server
+      now rebuilds every run so the served build always matches the source tree.
 - [x] End-to-end smoke — public + private-mode auth scenarios, a 55-assertion finance suite
       (accounts, categories, transactions, transfers, dashboard, cross-user isolation, UI renders)
       and a 94-assertion advanced suite (64-bit amounts, exact FX transfers, transfer editing,
@@ -320,11 +359,11 @@ Each phase is finished only when the following all pass:
    recurring bills — modeling, services, API, UI, tests all complete. Currency-universal:
    every African ISO 4217 currency works end-to-end (per-currency parsing, formatting,
    budgets, debts, bills, cross-currency transfers).
-3. **Shared households** *(next)* — every user already gets a fully isolated personal
-   ledger (cross-user access is tested to return 404). This phase adds households: a
-   shared space for a family or couple with joint accounts both can see and record into,
-   invitations + member management, and a combined household view. Personal accounts
-   stay private by default — sharing is opt-in per account.
+3. **Shared households** *(done)* — every user has a fully isolated personal ledger (cross-user
+   access is tested to return 404) plus opt-in sharing: households with joint accounts a family
+   or couple can both see and record into (per-member record permissions, single-use invite
+   links, combined household view with attribution, audit on every write). Personal accounts
+   stay private by default — sharing is opt-in per household account.
 4. **Budgets & goals** *(partial)* — monthly budgets are done; savings/spending goals and
    budget rollovers are still to come.
 5. **Debts & investments** *(partial)* — debt tracking is done ("tracked, not traded" — no

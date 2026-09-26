@@ -73,6 +73,31 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
+      {summary.household ? (
+        <Card>
+          <CardContent>
+            <div className="flex items-start gap-3">
+              <Icons.users className="mt-0.5 h-5 w-5 text-teal-600" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-slate-900">
+                  {summary.household.name} · shared finances
+                </p>
+                <p className="text-sm leading-relaxed text-slate-600">
+                  Joint balances, each member&apos;s spending and shared recent activity live on the
+                  household page — your personal ledger stays private.
+                </p>
+                <Link
+                  href="/dashboard/household"
+                  className="mt-1 inline-block text-sm font-medium text-primary-700 hover:underline"
+                >
+                  Open household →
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {summary.accounts.length === 0 ? (
         <Card>
           <CardContent>

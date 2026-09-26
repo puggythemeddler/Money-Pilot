@@ -34,7 +34,12 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
     listCategories(auth.user.id, {}),
   ]);
 
-  const accountOptions = accounts.map((a) => ({ id: a.id, name: a.name, currency: a.currency }));
+  const accountOptions = accounts.map((a) => ({
+    id: a.id,
+    name: a.name,
+    currency: a.currency,
+    shared: a.shared,
+  }));
   const categoryOptions = categories.map((c) => ({ id: c.id, name: c.name, color: c.color, kind: c.kind }));
 
   return (

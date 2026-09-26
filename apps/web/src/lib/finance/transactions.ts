@@ -11,7 +11,7 @@ import type { z } from "zod";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { AUDIT_ACTIONS } from "@/lib/constants";
-import { getOwnedAccount } from "./accounts";
+import { getMembership, resolveAccountForUser, visibleAccountWhere } from "./households";
 import { getOwnedCategory } from "./categories";
 import { toUtcMidnight } from "./dates";
 
@@ -30,6 +30,10 @@ export interface TransactionItem {
   transactionDate: string;
   accountId: string;
   accountName: string;
+  /** True when the transaction sits on a household joint account. */
+  shared: boolean;
+  /** The member who recorded the transaction (attribution on shared accounts). */
+  recordedByName: string | null;
   categoryId: string | null;
   categoryName: string | null;
   categoryColor: string | null;
@@ -38,11 +42,14 @@ export interface TransactionItem {
 }
 
 export async function listTransactions(userId: string, query: TransactionQuery) {
+  // Transactions are scoped by account visibility: the user's personal
+  // accounts plus their household's joint accounts (any recorder). A filter
+  // on a specific account resolves through the same visibility rules.
+  const accountFilter = await resolveAccountFilter(userId, query.accountId);
   const where = {
-    userId,
+    accountId: accountFilter,
     deletedAt: null,
     ...(query.kind ? { kind: query.kind } : {}),
-    ...(query.accountId ? { accountId: query.accountId } : {}),
     ...(query.categoryId ? { categoryId: query.categoryId } : {}),
     ...(query.from ? { transactionDate: { gte: toUtcMidnight(query.from) } } : {}),
     ...(query.to ? { transactionDate: { lt: new Date(toUtcMidnight(query.to).getTime() + 86_400_000) } } : {}),
@@ -60,7 +67,11 @@ export async function listTransactions(userId: string, query: TransactionQuery) 
   const [rows, total] = await Promise.all([
     prisma.transaction.findMany({
       where,
-      include: { account: { select: { name: true } }, category: { select: { name: true, color: true } } },
+      include: {
+        account: { select: { name: true, householdId: true } },
+        category: { select: { name: true, color: true } },
+        user: { select: { name: true } },
+      },
       orderBy: [{ transactionDate: "desc" }, { createdAt: "desc" }],
       take: query.limit,
       skip: query.offset,
@@ -80,6 +91,8 @@ export async function listTransactions(userId: string, query: TransactionQuery) 
       transactionDate: t.transactionDate.toISOString(),
       accountId: t.accountId,
       accountName: t.account.name,
+      shared: t.account.householdId !== null,
+      recordedByName: t.user.name,
       categoryId: t.categoryId,
       categoryName: t.category?.name ?? null,
       categoryColor: t.category?.color ?? null,
@@ -90,12 +103,33 @@ export async function listTransactions(userId: string, query: TransactionQuery) 
   };
 }
 
+/**
+ * The accountId filter for listing: a specific account id is resolved through
+ * the visibility rules (404 when not visible), otherwise the full set of
+ * visible account ids.
+ */
+async function resolveAccountFilter(
+  userId: string,
+  accountId: string | undefined,
+): Promise<string | { in: string[] }> {
+  if (accountId) {
+    await resolveAccountForUser(userId, accountId);
+    return accountId;
+  }
+  const membership = await getMembership(userId);
+  const visible = await prisma.account.findMany({
+    where: visibleAccountWhere(userId, membership),
+    select: { id: true },
+  });
+  return { in: visible.map((a) => a.id) };
+}
+
 export async function createTransaction(
   userId: string,
   input: TransactionCreateInput,
   audit: { ip?: string; userAgent?: string },
 ) {
-  const account = await getOwnedAccount(userId, input.accountId);
+  const account = await resolveAccountForUser(userId, input.accountId, { write: true });
   if (account.archivedAt !== null) {
     throw new AppError(ErrorCodes.FORBIDDEN, "Archived accounts cannot receive new transactions.", 400);
   }
@@ -151,10 +185,39 @@ export async function createTransaction(
   return transaction;
 }
 
-export async function getOwnedTransaction(userId: string, transactionId: string) {
-  const row = await prisma.transaction.findFirst({ where: { id: transactionId, userId } });
-  if (!row || row.deletedAt !== null) {
+/**
+ * Fetches a transaction the user can act on. Personal-account transactions
+ * resolve for the account owner; joint-account transactions resolve for every
+ * household member (read) and for members with record permission (write).
+ * Anything else is a 404 so cross-user existence never leaks.
+ */
+async function getAccessibleTransaction(
+  userId: string,
+  transactionId: string,
+  opts: { write?: boolean } = {},
+) {
+  const [row, membership] = await Promise.all([
+    prisma.transaction.findFirst({
+      where: { id: transactionId, deletedAt: null },
+      include: { account: true },
+    }),
+    getMembership(userId),
+  ]);
+  if (!row) {
     throw new AppError(ErrorCodes.NOT_FOUND, "Transaction not found.", 404);
+  }
+  const isJoint = row.account.householdId !== null;
+  const isPersonalMine = !isJoint && row.account.userId === userId;
+  const isMemberOfHousehold = isJoint && membership?.householdId === row.account.householdId;
+  if (!isPersonalMine && !isMemberOfHousehold) {
+    throw new AppError(ErrorCodes.NOT_FOUND, "Transaction not found.", 404);
+  }
+  if (opts.write && isMemberOfHousehold && membership?.canRecord !== true) {
+    throw new AppError(
+      ErrorCodes.FORBIDDEN,
+      "You have read-only access to this household's shared accounts.",
+      403,
+    );
   }
   return row;
 }
@@ -165,7 +228,7 @@ export async function updateTransaction(
   input: TransactionUpdateInput,
   audit: { ip?: string; userAgent?: string },
 ) {
-  const existing = await getOwnedTransaction(userId, transactionId);
+  const existing = await getAccessibleTransaction(userId, transactionId, { write: true });
   if (existing.transferId) {
     throw new AppError(
       ErrorCodes.FORBIDDEN,
@@ -226,7 +289,7 @@ export async function deleteTransaction(
   transactionId: string,
   audit: { ip?: string; userAgent?: string },
 ): Promise<void> {
-  const existing = await getOwnedTransaction(userId, transactionId);
+  const existing = await getAccessibleTransaction(userId, transactionId, { write: true });
 
   if (existing.transferId) {
     await prisma.$transaction([

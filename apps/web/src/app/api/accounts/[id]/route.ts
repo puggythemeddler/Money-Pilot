@@ -2,8 +2,9 @@ import { NextRequest } from "next/server";
 import { accountUpdateSchema, minorToNumber } from "@moneypilot/shared";
 import { fail, getClientIp, newRequestId, ok, parseJson, validate } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { getOwnedAccount, updateAccount } from "@/lib/finance/accounts";
+import { updateAccount } from "@/lib/finance/accounts";
 import { accountBalances } from "@/lib/finance/balances";
+import { resolveAccountForUser } from "@/lib/finance/households";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -14,8 +15,8 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
   try {
     const context = await requireUser({ headers: req.headers });
     const { id } = await ctx.params;
-    const account = await getOwnedAccount(context.user.id, id);
-    const balance = await accountBalances(context.user.id, [id]);
+    const account = await resolveAccountForUser(context.user.id, id);
+    const balance = await accountBalances([id]);
     const opening = minorToNumber(account.openingBalanceMinor);
     return ok({
       account: {
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
         openingBalanceMinor: opening,
         balanceMinor: opening + (balance[id]?.balanceMinor ?? 0),
         archived: account.archivedAt !== null,
+        shared: account.householdId !== null,
         createdAt: account.createdAt.toISOString(),
       },
     });

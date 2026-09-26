@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { minorToNumber } from "@moneypilot/shared";
 import { listAccounts } from "./accounts";
 import { totalsByRange } from "./balances";
+import { getMembership } from "./households";
 import { isoDate, toUtcMidnight } from "./dates";
 
 export interface CategorySpending {
@@ -11,9 +12,18 @@ export interface CategorySpending {
   amountMinor: number;
 }
 
-/** Aggregates that power the dashboard. All values are signed minor units. */
+/**
+ * Aggregates that power the dashboard. All values are signed minor units.
+ * The dashboard is the user's PERSONAL view: only personal accounts and
+ * personal-account activity is aggregated here; a small household card
+ * points members at the household view for shared finances.
+ */
 export async function dashboardSummary(userId: string) {
-  const accounts = await listAccounts(userId);
+  const [allAccounts, membership] = await Promise.all([
+    listAccounts(userId),
+    getMembership(userId),
+  ]);
+  const accounts = allAccounts.filter((a) => !a.shared);
   const availableMinor = accounts.reduce((sum, a) => sum + a.balanceMinor, 0);
 
   const now = new Date();
@@ -28,13 +38,14 @@ export async function dashboardSummary(userId: string) {
       where: {
         userId,
         kind: "EXPENSE",
+        account: { householdId: null },
         deletedAt: null,
         transactionDate: { gte: monthStart, lt: nextMonth },
       },
       _sum: { amountMinor: true },
     }),
     prisma.transaction.findMany({
-      where: { userId, deletedAt: null },
+      where: { userId, deletedAt: null, account: { householdId: null } },
       include: { account: { select: { name: true } }, category: { select: { name: true, color: true } } },
       orderBy: [{ transactionDate: "desc" }, { createdAt: "desc" }],
       take: 8,
@@ -61,6 +72,10 @@ export async function dashboardSummary(userId: string) {
     .slice(0, 6);
 
   return {
+    household:
+      membership && membership.household.archivedAt === null
+        ? { id: membership.household.id, name: membership.household.name }
+        : null,
     availableMinor,
     month: {
       from: isoDate(monthStart),

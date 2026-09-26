@@ -10,16 +10,18 @@ export interface AccountBalance {
 /**
  * Derives the current signed balance for each requested account from the
  * transaction log (the single source of truth) — balances are never stored.
+ * Account-scoped only: joint-account transactions are recorded by several
+ * members, so every open transaction on the account counts regardless of who
+ * recorded it. Callers must only pass account ids the user is allowed to see.
  */
 export async function accountBalances(
-  userId: string,
   accountIds: string[],
 ): Promise<Record<string, AccountBalance>> {
   if (accountIds.length === 0) return {};
 
   const rows = await prisma.transaction.groupBy({
     by: ["accountId"],
-    where: { userId, accountId: { in: accountIds }, deletedAt: null },
+    where: { accountId: { in: accountIds }, deletedAt: null },
     _sum: { amountMinor: true },
   });
 
@@ -42,7 +44,9 @@ export interface KindTotals {
   netMinor: number;
 }
 
-/** Sums open income/expense/adjustment transactions (excludes transfers). */
+/** Sums open income/expense/adjustment transactions (excludes transfers).
+ * Personal scope: only transactions on the user's own, non-shared accounts
+ * count here (joint-account activity is reported by the household overview). */
 export async function totalsByRange(
   userId: string,
   from?: Date,
@@ -52,6 +56,7 @@ export async function totalsByRange(
     by: ["kind"],
     where: {
       userId,
+      account: { householdId: null },
       deletedAt: null,
       ...(from ? { transactionDate: { gte: from } } : {}),
       ...(to ? { transactionDate: { lt: to } } : {}),
