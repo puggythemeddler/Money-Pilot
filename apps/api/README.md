@@ -66,5 +66,8 @@ web app in `apps/web` proxies its `/api/*` requests to this server — see
 ## Deployment (Render)
 
 Render runs `node dist/server.js` behind TLS with `PORT` injected; see
-`render.yaml` at the repository root. Required env: `DATABASE_URL`,
-`AUTH_JWT_SECRET`, `APP_BASE_URL` (the **web app's** https URL).
+`render.yaml` at the repository root and the full split-deployment guide in
+[docs/deployment.md](../../docs/deployment.md). Required env:
+`DATABASE_URL` (Neon), `AUTH_JWT_SECRET`, `APP_BASE_URL` (the **web app's**
+https URL — Vercel). Optional: `ALLOWED_ORIGINS` (extra accepted origins,
+comma separated), `PRIVATE_MODE`, `AUTH_REFRESH_TTL_DAYS`, `SMTP_*`.

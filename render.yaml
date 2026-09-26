@@ -1,21 +1,23 @@
-# Render Blueprint: MoneyPilot (full Next.js app) + Neon PostgreSQL.
-# Production topology: GitHub -> Render (UI + API) -> Neon PostgreSQL.
-# The frontend is served by the same Next.js process, so there is no CORS
-# surface: cookies and API calls stay same-origin. Vercel is deliberately
-# not used (a split frontend/backend would add cross-domain cookies + CORS
-# complexity with no benefit for this app). See docs/deployment.md.
+# Render Blueprint: MoneyPilot API (Hono backend) + Neon PostgreSQL.
+# Production topology: GitHub -> Vercel (apps/web, frontend-only) +
+# Render (apps/api, this blueprint) -> Neon PostgreSQL.
+# The web app proxies every /api/* request, same-origin, to this service
+# (next.config.ts rewrites + MONEYPILOT_API_ORIGIN), so browsers never talk
+# cross-origin, no CORS headers are needed, and the __Host- auth cookies land
+# on the web origin. See docs/deployment.md for the full guide.
 services:
   - type: web
-    name: moneypilot
+    name: moneypilot-api
     runtime: node
     plan: starter # adjust to your needs
     region: frankfurt # pick the region closest to your users
-    rootDir: apps/web
+    rootDir: apps/api
     # Render installs workspace dependencies from the repository root
     # package-lock.json (postinstall generates the SQLite dev client; the
-    # build command regenerates the canonical PostgreSQL client).
+    # build command regenerates the canonical PostgreSQL client, then the
+    # esbuild bundle).
     buildCommand: npx prisma generate && npm run build
-    startCommand: npx next start -p $PORT
+    startCommand: node dist/server.js
     preDeployCommand: node scripts/check-prod-env.mjs && npx prisma migrate deploy
     healthCheckPath: /api/health
     autoDeploy: true
@@ -30,8 +32,10 @@ services:
       # Generate: node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
       - key: AUTH_JWT_SECRET
         sync: false
-      # Public URL of this service, e.g. https://moneypilot.onrender.com
-      # (or your custom domain). Must be https:// in production.
+      # Public https:// URL of the WEB app (the Vercel deployment), e.g.
+      # https://moneypilot.vercel.app or your custom domain. Used for email
+      # links and the CSRF origin check (browsers send the web origin through
+      # the proxy). Update it whenever the web app's URL changes.
       - key: APP_BASE_URL
         sync: false
       # Invite-only registration: "true" requires invitation tokens.
@@ -40,6 +44,10 @@ services:
       # Web-session lifetime in days.
       - key: AUTH_REFRESH_TTL_DAYS
         value: "30"
+      # Optional extra origins accepted by the CSRF check (comma separated),
+      # e.g. a staging web URL or a custom domain during migration.
+      # - key: ALLOWED_ORIGINS
+      #   sync: false
       # SMTP (optional until a mailer provider is configured).
       # - key: SMTP_HOST
       #   sync: false

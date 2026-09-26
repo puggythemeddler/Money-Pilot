@@ -114,8 +114,8 @@ packages/shared   Shared domain rules: money (minor units), currency, FX, zod sc
 scripts/audit.mjs Dependency-audit CI gate (npm audit + reviewed allowlist)
 security/semgrep-rules.yml  Custom static-analysis security rules (clean on main)
 DESIGN.md         Design system guide (tokens, primitives, financial-UI rules)
-docs/deployment.md  Production deployment guide (being updated for the api/web split)
-render.yaml     Render Blueprint (being updated for the api/web split)
+docs/deployment.md  Vercel + Render + Neon deployment guide (the api/web split)
+render.yaml     Render Blueprint (the apps/api service + health check + pre-deploy migrations)
 .github/workflows/ci.yml   CI: lint, typecheck, unit tests, build, e2e, audit, Semgrep
 .github/workflows/snyk.yml Optional Snyk scan (runs only with a SNYK_TOKEN secret)
 ```
@@ -125,11 +125,10 @@ render.yaml     Render Blueprint (being updated for the api/web split)
 Target topology: GitHub → **Vercel** (`apps/web`, frontend-only) + **Render**
 (`apps/api`, the standalone Hono backend) → **Neon PostgreSQL**. The web app
 proxies every `/api/*` request, same-origin, to the API service — no CORS
-surface and same-origin cookies. Required environment, service setup and the
-post-deploy smoke test are documented in
-**[docs/deployment.md](docs/deployment.md)** (currently being updated for the
-split; the API service contract is fully documented in
-`apps/api/README.md`).
+surface and same-origin cookies. The deploy order (the two URLs depend on each
+other), service setup and the post-deploy smoke test are documented in
+**[docs/deployment.md](docs/deployment.md)**; the API service contract is
+documented in `apps/api/README.md`.
 
 ## Getting started
 
