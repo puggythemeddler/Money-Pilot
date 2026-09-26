@@ -1,0 +1,477 @@
+// ------------------------------------------------------------------
+// MoneyPilot database schema — Phase 3 (identity, sessions, finance, households)
+//
+// PRODUCTION:  provider is "postgresql" (canonical). Deployments run
+//              `prisma migrate deploy` against PostgreSQL (Neon); see
+//              docs/deployment.md and render.yaml at the repo root.
+// DEVELOPMENT: zero-install local development (and the e2e harnesses)
+//              use the generated SQLite twin `prisma/schema.sqlite.prisma`
+//              — regenerate it with
+//              `node apps/api/scripts/make-sqlite-schema.mjs` after any
+//              schema change (run inside apps/api), then
+//              `npx prisma db push --schema prisma/schema.sqlite.prisma`.
+//              The schema deliberately avoids provider-specific features
+//              so both providers model the exact same data.
+//
+// Design rules applied across the codebase:
+//  * Monetary values are INTEGER minor units (cents) plus a currency code.
+//    Float/Decimal is never used for money. Columns use 64-bit integers
+//    (BigInt); the practical ceiling is Number.MAX_SAFE_INTEGER in JS.
+//  * All timestamps are stored in UTC and converted to the user's timezone
+//    for display.
+//  * Ownership and authorization are enforced at the application layer and
+//    constrained with unique indexes on user-scoped data.
+//  * Destructive financial changes are handled via soft deletes + audit
+//    logs.
+// ------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// A registered account. `status` is app-level (ACTIVE | DISABLED) instead of
+/// a DB enum so the schema stays portable between SQLite and PostgreSQL.
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  name              String
+  passwordHash      String
+  role              String   @default("USER") // USER | ADMIN
+  status            String   @default("ACTIVE") // ACTIVE | DISABLED
+  emailVerifiedAt   DateTime?
+  preferredCurrency String   @default("KES")
+  timezone          String   @default("Africa/Nairobi")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
+
+  profile              UserProfile?
+  devices              Device[]
+  sessions             Session[]
+  verificationTokens   VerificationToken[]
+  auditLogs            AuditLog[]
+  createdInvitations   Invitation[] @relation("InvitationCreatedBy")
+  usedInvitation       Invitation? @relation("InvitationRegistration")
+  accounts             Account[]
+  categories           Category[]
+  transactions         Transaction[]
+  transfers            Transfer[]
+  budgets              Budget[]
+  debts                Debt[]
+  bills                Bill[]
+  billPayments         BillPayment[]
+  householdMembership  HouseholdMember?
+
+  @@map("users")
+}
+
+/// A shared household (family or couple): the container for joint accounts.
+/// Members share only the household's joint accounts — personal ledgers stay
+/// private. One household per user (unique member userId). Households are
+/// archive-only: when the last member leaves, the household and its joint
+/// accounts are archived so history is never destroyed.
+model Household {
+  id         String    @id @default(cuid())
+  name       String
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  members  HouseholdMember[]
+  invites  HouseholdInvite[]
+  accounts Account[]
+
+  @@map("households")
+}
+
+/// Membership in a household. `role` OWNER | MEMBER: the owner manages the
+/// household (rename, invites, member permissions, joint account lifecycle).
+/// `canRecord` is the per-member write permission on the household's joint
+/// accounts; read access is inherent to membership. Leaving or being removed
+/// deletes the row — the audit log retains the history.
+model HouseholdMember {
+  id          String   @id @default(cuid())
+  householdId String
+  userId      String   @unique
+  role        String   @default("MEMBER") // OWNER | MEMBER
+  canRecord   Boolean  @default(true)
+  joinedAt    DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@map("household_members")
+}
+
+/// Single-use invitation to join a household. The owner shares the plain token
+/// as a link; only its SHA-256 digest is stored. `canRecord` is the write
+/// permission the joining member receives on accepting.
+model HouseholdInvite {
+  id             String    @id @default(cuid())
+  householdId    String
+  tokenHash      String    @unique
+  canRecord      Boolean   @default(true)
+  status         String    @default("PENDING") // PENDING | ACCEPTED | REVOKED
+  expiresAt      DateTime
+  usedAt         DateTime?
+  acceptedUserId String?
+  createdAt      DateTime  @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, status])
+  @@map("household_invites")
+}
+
+/// Extended profile / preferences for a user.
+model UserProfile {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  financialMonthStartDay Int      @default(1)
+  onboardingCompletedAt DateTime?
+  settingsJson          String    @default("{}") // opaque user-preference JSON, validated by app
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_profiles")
+}
+
+/// A recognized client device (web browser, iOS, Android).
+/// `clientKey` is an opaque client-generated identifier that makes device
+/// registration idempotent across logins from the same browser/device.
+model Device {
+  id         String   @id @default(cuid())
+  userId     String
+  clientKey  String?
+  name       String
+  platform   String   @default("UNKNOWN") // WEB | IOS | ANDROID | UNKNOWN
+  userAgent  String?
+  ip         String?
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  revokedAt  DateTime?
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions Session[]
+
+  @@unique([userId, clientKey])
+  @@index([userId])
+  @@map("devices")
+}
+
+/// An authenticated session. `tokenHash` stores a SHA-256 digest of the
+/// opaque refresh token; the plain token is only ever presented by the client
+/// and never persisted. Rotation revokes `revokedAt` and chains to a new row.
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  deviceId  String
+  tokenHash String   @unique
+  remember  Boolean  @default(false) // lifetime class: long-lived vs short-lived
+  expiresAt DateTime
+  lastUsedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+  replacedById String? @unique // chain link for rotated refresh tokens
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([deviceId])
+  @@map("sessions")
+}
+
+/// Email-verification and password-reset tokens. Plain token is handed to the
+/// user by email; only its SHA-256 digest is stored here.
+model VerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String // EMAIL_VERIFY | PASSWORD_RESET
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+  @@map("verification_tokens")
+}
+
+/// Invitation to register, used when PRIVATE_MODE=true (invite-only signup).
+/// The plain token is handed to the invited person; only its SHA-256 digest is
+/// stored. An invitation is single-use and expires.
+model Invitation {
+  id               String    @id @default(cuid())
+  tokenHash        String    @unique
+  email            String?
+  role             String    @default("USER") // role granted on signup: USER | ADMIN
+  status           String    @default("PENDING") // PENDING | USED | REVOKED
+  expiresAt        DateTime
+  usedAt           DateTime?
+  registeredUserId String?  @unique
+  createdById      String?
+  createdAt        DateTime  @default(now())
+
+  createdBy User? @relation("InvitationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  registeredUser User? @relation("InvitationRegistration", fields: [registeredUserId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([createdById])
+  @@map("invitations")
+}
+
+/// Append-only audit trail. `metadata` is a JSON-encoded string so it stays
+/// portable across SQLite and PostgreSQL.
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String // e.g. AUTH_LOGIN, AUTH_REGISTER, AUTH_LOGOUT_ALL
+  entityType String?
+  entityId   String?
+  metadata   String?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
+
+/// A money account the user tracks (cash, M-Pesa, bank...). Balances are never
+/// stored: they are derived as `openingBalance + sum(open signed transactions)`
+/// so the transaction log is the single source of truth.
+///
+/// `householdId` is null for a personal account owned by `userId`. When set,
+/// the account is a joint account of that household: visible to every member
+/// (writable to members with record permission), while `userId` keeps
+/// recording the creating member (the household owner) for attribution.
+model Account {
+  id                  String    @id @default(cuid())
+  userId              String
+  householdId         String?
+  name                String
+  type                String    @default("BANK") // CASH | BANK | MPESA | SAVINGS | CREDIT | OTHER
+  currency            String    @default("KES")
+  openingBalanceMinor BigInt    @default(0)
+  archivedAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  household    Household?    @relation(fields: [householdId], references: [id])
+  transactions Transaction[]
+  transfersOut Transfer[]    @relation("TransferFrom")
+  transfersIn  Transfer[]    @relation("TransferTo")
+
+  @@unique([userId, name])
+  @@index([userId, archivedAt])
+  @@index([householdId])
+  @@map("accounts")
+}
+
+/// User-defined income/expense classification bucket.
+model Category {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  kind       String // INCOME | EXPENSE
+  color      String    @default("#64748b")
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  budgets      Budget[]
+  debts        Debt[]
+  bills        Bill[]
+
+  @@unique([userId, name, kind])
+  @@index([userId, archivedAt])
+  @@map("categories")
+}
+
+/// A single money movement. `amountMinor` is SIGNED minor units: negative
+/// means money out of the account, positive money in. Transfer legs are
+/// created in pairs (one positive, one negative) linked through `Transfer.id`.
+/// Columns are 64-bit BigInt (the practical limit is the JS safe-integer
+/// range, far beyond any realistic personal-finance balance).
+model Transaction {
+  id              String    @id @default(cuid())
+  userId          String
+  accountId       String
+  categoryId      String?
+  kind            String // INCOME | EXPENSE | TRANSFER | ADJUSTMENT
+  amountMinor     BigInt
+  currency        String    @default("KES")
+  description     String?
+  merchant        String?
+  notes           String?
+  transactionDate DateTime // day-granular, stored at UTC midnight
+  transferId      String?
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account  Account       @relation(fields: [accountId], references: [id])
+  category Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transfer Transfer?     @relation(fields: [transferId], references: [id], onDelete: SetNull)
+  billPayment BillPayment?
+
+  @@index([userId, transactionDate])
+  @@index([accountId])
+  @@index([categoryId])
+  @@map("transactions")
+}
+
+/// A money movement between two of the user's own accounts. A Transfer row is
+/// the atomic bundle that produced the two linked Transaction legs. `rate` is
+/// the decimal exchange rate used when the accounts have different currencies
+/// (1 unit of from-currency = `rate` units of to-currency, e.g. "129.45");
+/// it is null for same-currency transfers.
+model Transfer {
+  id              String    @id @default(cuid())
+  userId          String
+  fromAccountId   String
+  toAccountId     String
+  amountMinor     BigInt
+  currency        String // currency of the FROM account (the amount's currency)
+  rate            String?
+  transactionDate DateTime
+  description     String?
+  notes           String?
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromAccount Account      @relation("TransferFrom", fields: [fromAccountId], references: [id])
+  toAccount   Account      @relation("TransferTo", fields: [toAccountId], references: [id])
+  transactions Transaction[]
+
+  @@index([userId, transactionDate])
+  @@index([fromAccountId])
+  @@index([toAccountId])
+  @@map("transfers")
+}
+
+/// A monthly spending budget. `categoryId` scopes it to one EXPENSE category;
+/// a null categoryId means the whole month's spending. `period` is a "YYYY-MM"
+/// key. Budgets are archive-only; the month's spent amount is always derived
+/// from the transaction log, never stored.
+model Budget {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  amountMinor BigInt
+  currency    String    @default("KES")
+  period      String // "YYYY-MM" (UTC)
+  categoryId  String?
+  notes       String?
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, period, name])
+  @@index([userId, period])
+  @@index([categoryId])
+  @@map("budgets")
+}
+
+/// A tracked debt (loan, mortgage, credit card). "Tracking, not trading": the
+/// entity records what you owe. Payments are ordinary EXPENSE transactions
+/// tagged through `categoryId` (the linked category, e.g. "Debt repayment");
+/// totalPaid is derived from those transactions, and balance = principal −
+/// totalPaid. Principal is the amount owed when tracking started.
+model Debt {
+  id                  String    @id @default(cuid())
+  userId              String
+  name                String
+  type                String    @default("LOAN") // LOAN | CREDIT_CARD | MORTGAGE | OTHER
+  institution         String?
+  principalMinor      BigInt
+  currency            String    @default("KES")
+  interestRate        String? // annual percentage as a decimal string, e.g. "13.5"
+  minimumPaymentMinor BigInt?
+  dueDay              Int?
+  categoryId          String? // EXPENSE category whose transactions count as payments
+  notes               String?
+  archivedAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([categoryId])
+  @@map("debts")
+}
+
+/// A recurring monthly bill (rent, subscriptions, utilities). `dueDay` is the
+/// day of the month it falls due (1-31). "Mark as paid" creates a real EXPENSE
+/// transaction in `categoryId` for that month on the bill day, so a paid bill
+/// is a genuine money movement visible in balances and budgets.
+model Bill {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  amountMinor BigInt
+  currency    String    @default("KES")
+  dueDay      Int // 1-31
+  categoryId  String?
+  notes       String?
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  payments BillPayment[]
+
+  @@index([userId])
+  @@index([categoryId])
+  @@map("bills")
+}
+
+/// One paid month of a bill. The linked Transaction is the real EXPENSE entry
+/// created on the account; this row records which bill/period it settled so a
+/// bill's paid status is derived from the payment log, not guessed.
+model BillPayment {
+  id            String   @id @default(cuid())
+  billId        String
+  userId        String
+  transactionId String   @unique
+  paidFor       String // "YYYY-MM"
+  amountMinor   BigInt
+  currency      String
+  createdAt     DateTime @default(now())
+
+  bill        Bill        @relation(fields: [billId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+
+  @@unique([billId, paidFor])
+  @@index([userId, paidFor])
+  @@index([billId])
+  @@map("bill_payments")
+}

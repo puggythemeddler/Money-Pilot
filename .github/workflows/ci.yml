@@ -31,6 +31,15 @@ jobs:
       - name: Unit tests (shared domain rules)
         run: npm run test -- --filter=@moneypilot/shared
 
+      # The API bundles with esbuild after typechecking; the canonical
+      # PostgreSQL client is generated first (postinstall generated the
+      # SQLite dev client).
+      - name: Production build (api)
+        run: |
+          npx prisma generate
+          npm run build
+        working-directory: apps/api
+
       - name: Production build (web)
         run: |
           npx prisma generate
