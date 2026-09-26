@@ -3,6 +3,7 @@
 // 3105). Builds the web app first if no production build exists so a clean
 // clone can run `npm run e2e` without extra steps.
 import { spawn, execSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { rm, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -56,6 +57,11 @@ const child = spawn(process.execPath, [nextBin, "start", "-p", String(port)], {
     ...env,
     APP_BASE_URL: base,
     NODE_ENV: "production",
+    // CI runners have no .env file: the production env guard requires an
+    // explicit secret. A throwaway random value per boot keeps the e2e
+    // environment self-contained (tokens never need to outlive the server).
+    AUTH_JWT_SECRET:
+      process.env.AUTH_JWT_SECRET || randomBytes(48).toString("base64url"),
     PRIVATE_MODE: process.env.PRIVATE_MODE || "false",
     // The suite registers/logs in far more often than a real user within a
     // minute, all from the same loopback IP — the auth rate limit must not
