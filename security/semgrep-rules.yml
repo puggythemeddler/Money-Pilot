@@ -1,0 +1,83 @@
+# MoneyPilot custom Semgrep rules — precise, low-false-positive checks that
+# complement the registry rules (`--config auto` in CI).
+#
+# These rules express MoneyPilot-specific invariants:
+#   - no raw SQL (all data access goes through Prisma's typed query API)
+#   - no raw HTML injection (React escapes text; dangerouslySetInnerHTML
+#     would bypass that)
+#   - no dynamic code evaluation
+#   - no committed secrets (all secrets come from the environment via env.ts)
+#
+# Every rule must stay clean on this codebase — a custom rule that fires on
+# the main branch is a bug in the rule (or a real finding that must be fixed
+# before merge).
+rules:
+  - id: moneypilot.no-raw-sql
+    languages: [typescript]
+    message: >-
+      Raw SQL string queries bypass Prisma's parameterization and invite SQL
+      injection. Use Prisma's typed query API; if a raw query is truly needed,
+      use the $queryRaw tagged-template form (never *Unsafe string variants).
+    severity: ERROR
+    pattern-either:
+      - pattern: $P.$queryRawUnsafe(...)
+      - pattern: $P.$executeRawUnsafe(...)
+    paths:
+      include:
+        - "apps/**"
+        - "packages/**"
+
+  - id: moneypilot.no-dangerously-set-inner-html
+    # Text-level match on purpose: the attribute can appear in JSX where AST
+    # attribute patterns are easy to miss.
+    languages: [generic]
+    message: >-
+      dangerouslySetInnerHTML renders raw HTML and bypasses React's escaping.
+      Render text, or explicitly sanitize and document the decision.
+    severity: ERROR
+    pattern-regex: dangerouslySetInnerHTML
+    paths:
+      include:
+        - "apps/**"
+        - "packages/**"
+        - "*.tsx"
+        - "*.ts"
+
+  - id: moneypilot.no-dynamic-code-evaluation
+    languages: [typescript, javascript]
+    message: >-
+      eval() and new Function() execute dynamically-built code. There is no
+      legitimate use for them in this codebase.
+    severity: ERROR
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+    paths:
+      include:
+        - "apps/**"
+        - "packages/**"
+
+  - id: moneypilot.no-hardcoded-secrets
+    languages: [typescript, javascript]
+    message: >-
+      A secret-looking identifier is assigned a string literal. Secrets must
+      come from the environment (see apps/web/src/lib/env.ts) — never from
+      source code.
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: const $SECRET = "..."
+          - pattern: const $SECRET = '...'
+      # End-anchored on purpose: catches AUTH_SECRET / authToken / API_KEY
+      # while sparing non-secret constants like ACCESS_TOKEN_TTL_JOSE.
+      - metavariable-regex:
+          metavariable: $SECRET
+          regex: (?i).*(secret|token|password|apikey|api_key|privatekey|private_key)$
+    paths:
+      include:
+        - "apps/**"
+        - "packages/**"
+      exclude:
+        - "**/tests/**"
+        - "**/*.test.*"
+        - "**/*.spec.*"

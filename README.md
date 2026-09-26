@@ -8,9 +8,12 @@ Everything you record stays yours. The product deliberately avoids unsolicited m
 no ads, no data brokerage, no financial product upsells. It only spends from an optional
 monthly core budget you choose explicitly.
 
-> Status: **Phase 2 — financial engine.** Authentication, invite-only mode, admin foundation,
+> Status: **Phase 2 — financial engine (productionizing).** Authentication, invite-only mode, admin foundation,
 > data export / account deletion, accounts, categories, transactions, income/expenses and
 > transfers are implemented and end-to-end tested. Budgets, debts and reports land later.
+> CI/CD (lint/typecheck/tests/build, dependency audit, Semgrep, optional Snyk, Playwright
+> browser e2e) and the Render + Neon deployment path are in place — see
+> [DESIGN.md](DESIGN.md) for the design system.
 
 ## Stack
 
@@ -71,13 +74,18 @@ Formatting back to a currency string uses `formatMoney`.
 apps/web          Next.js application (UI + API routes)
   prisma/schema.prisma        Canonical PostgreSQL schema (production migrations)
   prisma/schema.sqlite.prisma Generated SQLite twin (local dev + e2e; regenerate via db:schema:sqlite)
-  scripts/                   db twin generator, prod env check, admin bootstrap
+  scripts/                   db twin generator, prod env check, e2e server, admin bootstrap
   src/lib/finance     Financial domain services (ownership + audit on every write)
   src/app/api/finance   API routes: accounts, categories, transactions, transfers, dashboard
+apps/e2e          Playwright browser e2e suite (Chromium; boots its own disposable app+DB)
 packages/shared   Shared domain rules: money (minor units), currency, zod schemas, error contract
+scripts/audit.mjs Dependency-audit CI gate (npm audit + reviewed allowlist)
+security/semgrep-rules.yml  Custom static-analysis security rules (clean on main)
+DESIGN.md         Design system guide (tokens, primitives, financial-UI rules)
 docs/deployment.md  Render + Neon production deployment guide
 render.yaml     Render Blueprint (web service + health check + pre-deploy migrations)
-.github/workflows/ci.yml   CI: lint, typecheck, unit tests, build, npm audit
+.github/workflows/ci.yml   CI: lint, typecheck, unit tests, build, e2e, audit, Semgrep
+.github/workflows/snyk.yml Optional Snyk scan (runs only with a SNYK_TOKEN secret)
 ```
 
 ## Production deployment
@@ -179,14 +187,25 @@ and can be re-run — subsequent runs are a no-op.
   row and device (revoked, expired, ownership) — logout, device revoke, and logout-all take
   effect immediately, not when a token happens to expire.
 - **CSRF**: unsafe cross-origin POST/PUT/PATCH/DELETE requests are rejected unless the Origin
-  matches. Security headers (X-Content-Type-Options, Referrer-Policy, X-Frame-Options,
-  Permissions-Policy) are set on every response.
+  matches the request's `Host`/`X-Forwarded-Host` (Next.js ≥ 15.5 pins the middleware URL to
+  `http://localhost` under `next start`, so the check compares request headers rather than
+  `req.nextUrl.origin`). Security headers (X-Content-Type-Options, Referrer-Policy,
+  X-Frame-Options, Permissions-Policy, HSTS behind TLS proxies) are set on every response.
 - **Roles & lifecycle**: admin routes require the `ADMIN` role; deleted/disabled accounts cannot
   authenticate. Invitation tokens are stored only as digests and are single-use.
 - Account deletion anonymizes personal information, revokes every session, and hard-stops
   authentication while retaining audit rows for compliance.
 - Auth endpoints are rate-limited per IP. `assertProdConfig` refuses to run on production
   builds unless served over https or loopback http.
+
+### Security tooling
+
+| Tool    | Where                                             | What it checks                                        |
+| ------- | ------------------------------------------------- | ----------------------------------------------------- |
+| Semgrep | CI `semgrep` job (`semgrep/semgrep` image)        | Custom rules (`security/semgrep-rules.yml`: no raw SQL, no `dangerouslySetInnerHTML`, no `eval`, no committed secrets) plus the `auto` registry ruleset. Locally: `pip install semgrep`, then `semgrep scan --config security/semgrep-rules.yml` |
+| npm audit | CI `audit` job via `scripts/audit.mjs`         | High/critical vulnerabilities in production dependencies, with a reviewed allowlist for build-time-only tools (the Prisma CLI chain currently has no patched release) |
+| Snyk    | `.github/workflows/snyk.yml` (optional)          | Deep dependency scan — runs only when a `SNYK_TOKEN` repo secret is configured; otherwise every step skips with an explicit note |
+| Playwright | `apps/e2e` (`npm run e2e`)                    | Browser-level regression suite: auth/session protection, CSRF origin behavior, account CRUD + archive, transactions + filters + pagination, transfers, dashboard aggregation |
 
 ## Data privacy
 
@@ -233,8 +252,10 @@ Only available to `ADMIN` users.
 npm run dev           # development servers
 npm run build         # production build (all workspaces)
 npm run test          # unit tests (packages/shared)
+npm run e2e           # Playwright browser e2e (apps/e2e; builds the app first if needed)
 npm run lint          # eslint (all workspaces)
 npm run typecheck     # TypeScript checks (all workspaces)
+node scripts/audit.mjs  # dependency audit gate (what CI runs)
 
 # apps/web
 npm run db:dev             # generate SQLite client + create prisma/dev.db (local dev)
@@ -242,6 +263,11 @@ npm run db:schema:sqlite   # regenerate the SQLite twin after a schema change
 npm run db:generate        # generate the canonical PostgreSQL client
 npm run db:deploy          # prisma migrate deploy (production; run by Render pre-deploy)
 ```
+
+First e2e run needs the browser binary once: `npx playwright install chromium`
+(run inside `apps/e2e`). The suite boots its own disposable server on
+http://localhost:3105 against a fresh SQLite database — your `dev.db` is never
+touched, and each test registers its own isolated user.
 
 ## Verification checklist
 
@@ -255,13 +281,24 @@ Each phase is finished only when the following all pass:
 - [x] API/DB consistency (PostgreSQL migrations: canonical schema with a single
       `postgres_baseline` migration applied via `prisma migrate deploy`; SQLite twin
       for local dev/e2e is generated from it, so they can never drift)
-- [x] CI (GitHub Actions: lint, typecheck, unit tests, production build, npm audit
-      at high-and-above — see `.github/workflows/ci.yml`)
+- [x] CI (GitHub Actions: lint, typecheck, unit tests, production build, dependency audit
+      with reviewed allowlist, Semgrep custom + registry rules, Playwright e2e — see
+      `.github/workflows/ci.yml`; optional Snyk workflow runs only with a `SNYK_TOKEN`)
+- [x] Playwright browser e2e (Chromium, 18 tests) — register/login/logout, invalid and
+      tampered sessions, protected-route redirects, account create/archive/rename,
+      transactions + kind/search filters + API pagination, cross-currency amounts,
+      transfers (both legs), dashboard aggregation and empty states. Caught a real
+      production bug before deploy: the CSRF origin check relied on Next's middleware URL,
+      which is localhost-pinned under `next start` since 15.5 and would have rejected all
+      browser POSTs behind a proxy.
 - [x] End-to-end smoke — public + private-mode auth scenarios, a 55-assertion finance suite
       (accounts, categories, transactions, transfers, dashboard, cross-user isolation, UI renders)
       and a 94-assertion advanced suite (64-bit amounts, exact FX transfers, transfer editing,
       budgets, debts, bills, universal African currencies — including cross-user isolation and
       UI renders)
+- [x] Static security — Semgrep custom rules verified clean on the repo (each rule also
+      verified to fire on a deliberately vulnerable scratch file); Snyk workflow is
+      token-gated and configuration-reviewed only (no token available locally)
 - [x] Responsive UI review (no dead links or buttons)
 
 ## Roadmap
@@ -302,6 +339,14 @@ third-party payment processing, social networking, and an unsolicited advisory e
 - Auth rate limiting is in-memory (per-instance). Acceptable for the single
   Render service in this topology; a shared store (e.g. Redis or Neon-backed)
   is the upgrade path if the service ever scales horizontally.
+- The e2e server raises `RATE_LIMIT_AUTH_MAX` locally (the suite registers far
+  more users than a real visitor; the production default is untouched).
+- `postcss` is pinned via a root `package.json` override to a patched release:
+  Next 15.x bundles a vulnerable copy and the upstream fix only ships in
+  Next 16 (a breaking upgrade). Revisit the override when Next is upgraded.
+- Semgrep was verified locally on Python 3.14 (pip-installed). Snyk requires
+  a `SNYK_TOKEN` repo secret, so the workflow is verified by configuration
+  review only — add the token and push to see it run.
 
 ## License
 

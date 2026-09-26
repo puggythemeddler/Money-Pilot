@@ -9,6 +9,10 @@ coverage/
 .turbo/
 *.tsbuildinfo
 
+# Playwright
+playwright-report/
+test-results/
+
 # Environment and secrets
 .env
 .env.local

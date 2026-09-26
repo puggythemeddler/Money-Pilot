@@ -1,0 +1,45 @@
+name: Snyk
+
+# Optional deep dependency-vulnerability scanning, on top of the npm audit
+# gate in CI. Runs only when a SNYK_TOKEN secret is configured on the repo
+# (Settings → Secrets and variables → Actions → SNYK_TOKEN, from a snyk.io
+# account); without a token every step skips itself and the workflow stays
+# green. The token could not be verified locally, so this workflow is
+# configuration-reviewed only.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC, catches newly disclosed advisories
+  workflow_dispatch:
+
+env:
+  SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+jobs:
+  snyk:
+    name: snyk dependency scan (high and above)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+        if: env.SNYK_TOKEN != ''
+
+      # --all-projects covers every workspace (web, shared, e2e); the
+      # threshold mirrors the CI audit gate: high and above.
+      - name: Snyk test (all projects)
+        if: env.SNYK_TOKEN != ''
+        run: npx --yes snyk@latest test --all-projects --severity-threshold=high
+
+      # No token configured: make the skip explicit instead of silently
+      # passing a workflow that did nothing.
+      - name: Report skipped run (no SNYK_TOKEN)
+        if: env.SNYK_TOKEN == ''
+        run: echo "SNYK_TOKEN is not configured — skipping Snyk scan. Add the repo secret to enable it."
