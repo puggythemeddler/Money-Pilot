@@ -90,7 +90,11 @@ The repository ships a Render Blueprint: **`render.yaml`** at the repo root.
 
 1. In Render, choose **New → Blueprint** and select this repository.
 2. Render reads `render.yaml` and creates the `moneypilot-api` web service
-   (Node runtime, root directory `apps/api`).
+   (Node runtime). The service root is the **repository root** — this is an
+   npm workspaces monorepo, so `npm install` must run where the root
+   `package.json`, `package-lock.json` and `packages/shared` live for
+   `@moneypilot/shared` to resolve. The install/build/start/pre-deploy
+   commands reference `apps/api` by path (see the Blueprint).
 3. Set the secret environment variables when prompted (Blueprint marks them
    `sync: false`):
 
@@ -120,19 +124,20 @@ The repository ships a Render Blueprint: **`render.yaml`** at the repo root.
    Without them the Google endpoints redirect back with a clear "not
    configured" error and everything else works unchanged.
 
-4. Deploy. The pre-deploy step (`node scripts/check-prod-env.mjs &&
-   npx prisma migrate deploy`, run in `apps/api`) fails fast with a clear
-   message if a required variable is missing or malformed, then applies
-   migrations. The service binds the port Render injects (`PORT`) and the
-   health check polls `/api/health`.
+4. Deploy. The pre-deploy step (`node apps/api/scripts/check-prod-env.mjs &&
+   cd apps/api && npx prisma migrate deploy`) fails fast with a clear message
+   if a required variable is missing or malformed, then applies migrations.
+   The service binds the port Render injects (`PORT`) and the health check
+   polls `/api/health`.
 
 ### Option B — Manual service
 
-- **Type**: Web Service, Node, root directory `apps/api`
-  (Render installs workspace dependencies from the repo-root lockfile).
-- **Build command**: `npx prisma generate && npm run build`
-- **Start command**: `node dist/server.js`
-- **Pre-deploy command**: `node scripts/check-prod-env.mjs && npx prisma migrate deploy`
+- **Type**: Web Service, Node. Leave **Root Directory empty** (the repository
+  root): `npm install` must run where the root `package.json` +
+  `package-lock.json` live so the `@moneypilot/shared` workspace resolves.
+- **Build command**: `npm install --workspace @moneypilot/shared --workspace @moneypilot/api && cd apps/api && npx prisma generate && npm run build`
+- **Start command**: `node apps/api/dist/server.js`
+- **Pre-deploy command**: `node apps/api/scripts/check-prod-env.mjs && cd apps/api && npx prisma migrate deploy`
 - **Health check path**: `/api/health`
 - Same environment variables as above (`NODE_ENV=production` is Render's default).
 
@@ -141,12 +146,13 @@ The repository ships a Render Blueprint: **`render.yaml`** at the repo root.
 - `npx prisma generate` — builds the Prisma client from the **canonical
   PostgreSQL schema**. (The install step's postinstall generates the SQLite
   dev client; this build step switches to the production client.)
-- `npm run build` — `tsc --noEmit` (type safety), then the esbuild bundle
-  `dist/server.js` (Prisma client, Hono, jose, bcryptjs, zod stay external).
-- Pre-deploy — validates the environment, then applies PostgreSQL migrations
-  with `prisma migrate deploy`.
-- `node dist/server.js` — binds the port Render provides (never a hardcoded
-  port).
+- `npm run build` — run inside `apps/api`; `tsc --noEmit` (type safety), then
+  the esbuild bundle `dist/server.js` (Prisma client, Hono, jose, bcryptjs,
+  zod stay external).
+- Pre-deploy — validates the environment (from the repo root), then applies
+  PostgreSQL migrations with `prisma migrate deploy` (run inside `apps/api`).
+- `node apps/api/dist/server.js` — binds the port Render provides (never a
+  hardcoded port).
 
 ## 4. Vercel — the web app
 

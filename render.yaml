@@ -5,22 +5,37 @@
 # (next.config.ts rewrites + MONEYPILOT_API_ORIGIN), so browsers never talk
 # cross-origin, no CORS headers are needed, and the __Host- auth cookies land
 # on the web origin. See docs/deployment.md for the full guide.
+#
+# The service root is the REPOSITORY ROOT, not apps/api: this is an npm
+# workspaces monorepo, so `npm install` must run where the root package.json,
+# package-lock.json and packages/shared live for @moneypilot/shared to resolve
+# (files outside a service's root directory are not available to the build).
+# All commands below run from the repo root and reference apps/api by path.
+# The buildFilter preserves the "only redeploy for api/shared changes"
+# behaviour that a subsdirectory root directory used to provide.
 services:
   - type: web
     name: moneypilot-api
     runtime: node
-    plan: starter # adjust to your needs
+    plan: free # test deployment; pick a paid plan for production workloads
     region: frankfurt # pick the region closest to your users
-    rootDir: apps/api
-    # Render installs workspace dependencies from the repository root
-    # package-lock.json (postinstall generates the SQLite dev client; the
-    # build command regenerates the canonical PostgreSQL client, then the
-    # esbuild bundle).
-    buildCommand: npx prisma generate && npm run build
-    startCommand: node dist/server.js
-    preDeployCommand: node scripts/check-prod-env.mjs && npx prisma migrate deploy
+    # npm install installs only the api + shared workspaces (skips apps/web
+    # and apps/e2e, whose Playwright install would download browsers on every
+    # build). postinstall of @moneypilot/api generates the SQLite dev client;
+    # the build step regenerates the canonical PostgreSQL client, then the
+    # bundler output lands in apps/api/dist/server.js.
+    buildCommand: npm install --workspace @moneypilot/shared --workspace @moneypilot/api && cd apps/api && npx prisma generate && npm run build
+    startCommand: node apps/api/dist/server.js
+    preDeployCommand: node apps/api/scripts/check-prod-env.mjs && cd apps/api && npx prisma migrate deploy
     healthCheckPath: /api/health
     autoDeploy: true
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/shared/**
+        - package-lock.json
+        - package.json
+        - render.yaml
     envVars:
       - key: NODE_ENV
         value: production
