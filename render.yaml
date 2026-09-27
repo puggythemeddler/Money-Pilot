@@ -22,11 +22,15 @@ services:
     # npm install installs only the api + shared workspaces (skips apps/web
     # and apps/e2e, whose Playwright install would download browsers on every
     # build). postinstall of @moneypilot/api generates the SQLite dev client;
-    # the build step regenerates the canonical PostgreSQL client, then the
-    # bundler output lands in apps/api/dist/server.js.
-    buildCommand: npm install --workspace @moneypilot/shared --workspace @moneypilot/api && cd apps/api && npx prisma generate && npm run build
-    startCommand: node apps/api/dist/server.js
-    preDeployCommand: node apps/api/scripts/check-prod-env.mjs && cd apps/api && npx prisma migrate deploy
+    # the build step validates the environment, regenerates the canonical
+    # PostgreSQL client, applies migrations, and bundles the server.
+    #
+    # Render Free does not support pre-deploy commands, so the env check and
+    # `prisma migrate deploy` run here, in the build pipeline, instead.
+    buildCommand: npm install --workspace @moneypilot/shared --workspace @moneypilot/api && cd apps/api && node scripts/check-prod-env.mjs && npx prisma generate && npx prisma migrate deploy && npm run build
+    # Env guard on start too: fail fast with a clear message if a required
+    # production variable goes missing after the build.
+    startCommand: node apps/api/scripts/check-prod-env.mjs && node apps/api/dist/server.js
     healthCheckPath: /api/health
     autoDeploy: true
     buildFilter:

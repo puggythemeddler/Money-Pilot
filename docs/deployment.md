@@ -56,8 +56,8 @@ intentionally ships with a single URL to keep configuration minimal.
 
 ### Migrations — safety rules
 
-- Production uses `prisma migrate deploy` only (run automatically by Render's
-  pre-deploy step). **Never** run `prisma migrate dev`, `prisma db push`, or
+- Production uses `prisma migrate deploy` only (run automatically in Render's
+  build step). **Never** run `prisma migrate dev`, `prisma db push`, or
   `prisma migrate reset` against production — they can rewrite/drop data.
 - `prisma migrate deploy` is forward-only. To "roll back" a bad migration:
   fix forward with a new migration. Before risky deploys, create a Neon branch
@@ -124,20 +124,21 @@ The repository ships a Render Blueprint: **`render.yaml`** at the repo root.
    Without them the Google endpoints redirect back with a clear "not
    configured" error and everything else works unchanged.
 
-4. Deploy. The pre-deploy step (`node apps/api/scripts/check-prod-env.mjs &&
-   cd apps/api && npx prisma migrate deploy`) fails fast with a clear message
-   if a required variable is missing or malformed, then applies migrations.
-   The service binds the port Render injects (`PORT`) and the health check
-   polls `/api/health`.
+4. Deploy. **Render Free does not support pre-deploy commands**, so the
+   build pipeline runs the checks instead: it validates the environment
+   (`node apps/api/scripts/check-prod-env.mjs`), regenerates the Prisma
+   client, applies migrations (`npx prisma migrate deploy`), then builds.
+   The start command re-runs the env check as a guard. The service binds
+   the port Render injects (`PORT`) and the health check polls
+   `/api/health`.
 
 ### Option B — Manual service
 
 - **Type**: Web Service, Node. Leave **Root Directory empty** (the repository
   root): `npm install` must run where the root `package.json` +
   `package-lock.json` live so the `@moneypilot/shared` workspace resolves.
-- **Build command**: `npm install --workspace @moneypilot/shared --workspace @moneypilot/api && cd apps/api && npx prisma generate && npm run build`
-- **Start command**: `node apps/api/dist/server.js`
-- **Pre-deploy command**: `node apps/api/scripts/check-prod-env.mjs && cd apps/api && npx prisma migrate deploy`
+- **Build command**: `npm install --workspace @moneypilot/shared --workspace @moneypilot/api && cd apps/api && node scripts/check-prod-env.mjs && npx prisma generate && npx prisma migrate deploy && npm run build`
+- **Start command**: `node apps/api/scripts/check-prod-env.mjs && node apps/api/dist/server.js`
 - **Health check path**: `/api/health`
 - Same environment variables as above (`NODE_ENV=production` is Render's default).
 
@@ -146,13 +147,16 @@ The repository ships a Render Blueprint: **`render.yaml`** at the repo root.
 - `npx prisma generate` — builds the Prisma client from the **canonical
   PostgreSQL schema**. (The install step's postinstall generates the SQLite
   dev client; this build step switches to the production client.)
+- `npx prisma migrate deploy` — applies the committed PostgreSQL migrations
+  to Neon. It runs in the build step because Render Free has no pre-deploy
+  hook; the migrations are forward-only and safe to run on every build.
 - `npm run build` — run inside `apps/api`; `tsc --noEmit` (type safety), then
   the esbuild bundle `dist/server.js` (Prisma client, Hono, jose, bcryptjs,
   zod stay external).
-- Pre-deploy — validates the environment (from the repo root), then applies
-  PostgreSQL migrations with `prisma migrate deploy` (run inside `apps/api`).
 - `node apps/api/dist/server.js` — binds the port Render provides (never a
-  hardcoded port).
+  hardcoded port); the env-check guard ahead of it fails startup fast with a
+  clear message if `DATABASE_URL`, `AUTH_JWT_SECRET` or `APP_BASE_URL` is
+  missing or malformed in production.
 
 ## 4. Vercel — the web app
 
