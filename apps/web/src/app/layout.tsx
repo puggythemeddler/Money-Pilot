@@ -32,7 +32,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-dvh bg-page font-sans text-heading antialiased">
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        {/* Static constant, rendered as raw JS (never user data) — no-flash theme init. */}
+        <script>{themeInitScript}</script>
         {children}
       </body>
     </html>
