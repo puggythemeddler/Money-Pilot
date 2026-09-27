@@ -44,15 +44,22 @@ environment, and give each API deployment its own `DATABASE_URL`.
    service in the same Neon region).
 2. Copy the **pooled** connection string (it is preconfigured with SSL):
    `postgresql://user:password@ep-…pooler.region.aws.neon.tech/neondb?sslmode=require`
-3. That URL becomes `DATABASE_URL` on Render.
+   — that becomes `DATABASE_URL` on Render.
+3. Copy the **direct** connection string too (Connection Details → "Direct
+   connection", same string minus the `-pooler` host segment): it becomes
+   `DIRECT_DATABASE_URL` on Render.
 
-Neon guidance: use the pooled endpoint for the app (the API runs one
-persistent Node process with a small Prisma connection pool). Migrations also
-run through it in this setup; Neon's pooler handles `prisma migrate deploy`
-fine. If you prefer the textbook setup (pooled runtime + direct migrations),
-add `directUrl = env("DIRECT_DATABASE_URL")` to the `datasource db` block in
-`apps/api/prisma/schema.prisma` and set both variables — the schema
-intentionally ships with a single URL to keep configuration minimal.
+Neon provides two endpoints; the API uses both:
+
+- `DATABASE_URL` — the **pooled** endpoint, for the app at runtime (one
+  persistent Node process with a small Prisma connection pool).
+- `DIRECT_DATABASE_URL` — the **direct** endpoint, for `prisma migrate
+  deploy`. Prisma Migrate needs real sessions and advisory locks; Neon's
+  transaction-mode pooler breaks in the middle of applying a migration with
+  `P3018 error encoding message to server: string contains embedded null`.
+  The schema declares both via `directUrl`:
+  `directUrl = env("DIRECT_DATABASE_URL")` in `apps/api/prisma/schema.prisma`.
+  Runtime queries keep flowing through the pooled URL.
 
 ### Migrations — safety rules
 
@@ -93,16 +100,17 @@ The repository ships a Render Blueprint: **`render.yaml`** at the repo root.
    (Node runtime). The service root is the **repository root** — this is an
    npm workspaces monorepo, so `npm install` must run where the root
    `package.json`, `package-lock.json` and `packages/shared` live for
-   `@moneypilot/shared` to resolve. The install/build/start/pre-deploy
-   commands reference `apps/api` by path (see the Blueprint).
+   `@moneypilot/shared` to resolve. The install/build/start commands
+   reference `apps/api` by path (see the Blueprint).
 3. Set the secret environment variables when prompted (Blueprint marks them
    `sync: false`):
 
-   | Variable          | Value                                                        |
-   | ----------------- | ------------------------------------------------------------ |
-   | `DATABASE_URL`    | Neon pooled connection string (from step 1)                 |
-   | `AUTH_JWT_SECRET` | 48 random bytes: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` |
-   | `APP_BASE_URL`    | The **web app's** https URL, e.g. `https://moneypilot.vercel.app` (update whenever the web URL changes, e.g. a custom domain) |
+   | Variable               | Value                                                        |
+   | ---------------------- | ------------------------------------------------------------ |
+   | `DATABASE_URL`         | Neon **pooled** connection string (from step 1)             |
+   | `DIRECT_DATABASE_URL`  | Neon **direct** connection string — used by `prisma migrate deploy` (from step 1) |
+   | `AUTH_JWT_SECRET`      | 48 random bytes: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` |
+   | `APP_BASE_URL`         | The **web app's** https URL, e.g. `https://moneypilot.vercel.app` (update whenever the web URL changes, e.g. a custom domain) |
 
    Optional: `ALLOWED_ORIGINS` (extra accepted origins, comma separated),
    `PRIVATE_MODE=true` (invite-only registration), `AUTH_REFRESH_TTL_DAYS`,
@@ -155,8 +163,8 @@ The repository ships a Render Blueprint: **`render.yaml`** at the repo root.
   zod stay external).
 - `node apps/api/dist/server.js` — binds the port Render provides (never a
   hardcoded port); the env-check guard ahead of it fails startup fast with a
-  clear message if `DATABASE_URL`, `AUTH_JWT_SECRET` or `APP_BASE_URL` is
-  missing or malformed in production.
+  clear message if `DATABASE_URL`, `DIRECT_DATABASE_URL`, `AUTH_JWT_SECRET`
+  or `APP_BASE_URL` is missing or malformed in production.
 
 ## 4. Vercel — the web app
 

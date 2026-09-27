@@ -47,6 +47,15 @@ services:
       # Example: postgresql://user:pass@host/dbname?sslmode=require
       - key: DATABASE_URL
         sync: false
+      # Neon DIRECT (non-pooled) connection string for `prisma migrate
+      # deploy`: Prisma Migrate needs real sessions/advisory locks, which
+      # Neon's transaction-mode pooler breaks (fails mid-migration with
+      # "string contains embedded null" / P3018). Runtime queries keep using
+      # the pooled DATABASE_URL above. Get it from Neon -> Connection Details
+      # -> "Direct connection" (same string minus the -pooler host segment).
+      # Example: postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/dbname?sslmode=require
+      - key: DIRECT_DATABASE_URL
+        sync: false
       # HMAC secret for access tokens. At least 32 characters.
       # Generate: node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
       - key: AUTH_JWT_SECRET

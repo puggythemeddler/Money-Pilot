@@ -13,6 +13,17 @@ if (!/^postgres(ql)?:\/\//.test(databaseUrl)) {
   );
 }
 
+// Neon split: DATABASE_URL = pooled endpoint for the long-running api process;
+// DIRECT_DATABASE_URL = direct (non-pooled) endpoint for prisma migrate, which
+// needs real sessions/advisory locks that Neon's transaction-mode pooler
+// breaks (fails with "string contains embedded null" / P3018 mid-migration).
+const directUrl = process.env.DIRECT_DATABASE_URL ?? "";
+if (!/^postgres(ql)?:\/\//.test(directUrl)) {
+  problems.push(
+    `DIRECT_DATABASE_URL must be the direct (non-pooled) PostgreSQL connection string (got: "${directUrl.slice(0, 24)}…").`,
+  );
+}
+
 const jwtSecret = process.env.AUTH_JWT_SECRET ?? "";
 if (jwtSecret.length < 32) {
   problems.push(
@@ -39,4 +50,6 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
-console.log("Production environment check passed (DATABASE_URL, AUTH_JWT_SECRET, APP_BASE_URL).");
+console.log(
+  "Production environment check passed (DATABASE_URL, DIRECT_DATABASE_URL, AUTH_JWT_SECRET, APP_BASE_URL).",
+);
