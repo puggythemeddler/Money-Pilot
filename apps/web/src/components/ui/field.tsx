@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 export function Label({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     <label
-      className={cn("mb-1.5 block text-sm font-medium text-slate-700", className)}
+      className={cn("mb-1.5 block text-sm font-medium text-body", className)}
       {...props}
     />
   );
@@ -25,11 +25,11 @@ export function Field({ label, htmlFor, hint, error, children }: FieldProps) {
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {error ? (
-        <p id={`${htmlFor}-error`} className="mt-1.5 text-sm font-medium text-red-600" role="alert">
+        <p id={`${htmlFor}-error`} className="mt-1.5 text-sm font-medium text-red-600 dark:text-red-400" role="alert">
           {error}
         </p>
       ) : hint ? (
-        <p className="mt-1.5 text-sm text-slate-500">{hint}</p>
+        <p className="mt-1.5 text-sm text-muted">{hint}</p>
       ) : null}
     </div>
   );

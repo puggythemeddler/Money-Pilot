@@ -46,7 +46,7 @@ export function InviteAcceptForm({ token }: { token: string }) {
           </Button>
         </form>
         {error ? <Alert variant="error">{error}</Alert> : null}
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-faint">
           Invitation links are single-use and expire after 14 days. Ask the household owner for a
           fresh link if this one no longer works.
         </p>

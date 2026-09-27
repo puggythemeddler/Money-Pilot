@@ -55,27 +55,27 @@ export function DevicesSection({ initialDevices }: { initialDevices: SettingsDev
   return (
     <div className="space-y-4">
       {error ? <Alert variant="error">{error}</Alert> : null}
-      <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+      <ul className="divide-y divide-line rounded-xl border border-line bg-surface">
         {devices.length === 0 ? (
-          <li className="px-4 py-3 text-sm text-slate-500">No active devices.</li>
+          <li className="px-4 py-3 text-sm text-muted">No active devices.</li>
         ) : (
           devices.map((device) => (
             <li key={device.id} className="flex items-center justify-between gap-3 px-4 py-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="truncate text-sm font-medium text-slate-900">
+                  <p className="truncate text-sm font-medium text-heading">
                     {device.isCurrent ? `${device.name} (this device)` : device.name}
                   </p>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                  <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">
                     {device.platform}
                   </span>
                   {device.activeSessions > 1 ? (
-                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
                       {device.activeSessions} sessions
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-0.5 truncate text-xs text-slate-400">
+                <p className="mt-0.5 truncate text-xs text-faint">
                   Last active {new Date(device.lastSeenAt).toLocaleString()}
                 </p>
               </div>

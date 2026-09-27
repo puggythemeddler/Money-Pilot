@@ -55,8 +55,8 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Transactions</h1>
-        <p className="text-sm text-slate-500">Every expense, income and transfer leg, in one place.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-heading">Transactions</h1>
+        <p className="text-sm text-muted">Every expense, income and transfer leg, in one place.</p>
       </header>
       <TransactionsManager
         items={result.items}

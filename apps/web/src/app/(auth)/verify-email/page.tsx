@@ -46,7 +46,7 @@ function VerifyEmailForm() {
   }, [token]);
 
   if (status.state === "loading") {
-    return <p className="text-sm text-slate-500">Verifying your email…</p>;
+    return <p className="text-sm text-muted">Verifying your email…</p>;
   }
   if (status.state === "error") {
     return <Alert variant="error" title="Verification failed">{status.message}</Alert>;
@@ -70,14 +70,14 @@ export default function VerifyEmailPage() {
         <CardDescription>Confirming your email secures your account.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Suspense fallback={<p className="text-sm text-slate-500">Loading…</p>}>
+        <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
           <VerifyEmailForm />
         </Suspense>
         <div className="mt-5 flex items-center justify-between text-sm">
-          <a href="/dashboard" className="font-medium text-primary-700 hover:text-primary-800">
+          <a href="/dashboard" className="font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300">
             Go to dashboard
           </a>
-          <a href="/login" className="font-medium text-slate-600 hover:text-slate-800">
+          <a href="/login" className="font-medium text-body hover:text-heading">
             <Button variant="ghost" size="sm">
               Log in
             </Button>

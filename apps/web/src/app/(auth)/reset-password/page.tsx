@@ -98,11 +98,11 @@ export default function ResetPasswordPage() {
         <CardDescription>This link can only be used once.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Suspense fallback={<p className="text-sm text-slate-500">Loading…</p>}>
+        <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
           <ResetPasswordForm />
         </Suspense>
-        <p className="mt-5 text-center text-sm text-slate-500">
-          <a href="/forgot-password" className="font-medium text-primary-700 hover:text-primary-800">
+        <p className="mt-5 text-center text-sm text-muted">
+          <a href="/forgot-password" className="font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300">
             Request a new link
           </a>
         </p>

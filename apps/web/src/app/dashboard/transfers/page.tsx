@@ -21,8 +21,8 @@ export default async function TransfersPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Transfers</h1>
-        <p className="text-sm text-slate-500">Moving money between your own accounts.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-heading">Transfers</h1>
+        <p className="text-sm text-muted">Moving money between your own accounts.</p>
       </header>
       <TransfersManager
         transfers={transfers.transfers}

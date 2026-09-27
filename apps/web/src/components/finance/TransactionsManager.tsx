@@ -223,7 +223,7 @@ export function TransactionsManager({ items, total, accounts, categories, filter
       {editing ? (
         <Card>
           <CardContent>
-            <p className="mb-3 text-sm font-semibold text-slate-900">
+            <p className="mb-3 text-sm font-semibold text-heading">
               Edit {editing.kind.toLowerCase()} · {editing.accountName}
             </p>
             <form onSubmit={saveEdit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -329,24 +329,24 @@ export function TransactionsManager({ items, total, accounts, categories, filter
 
       <Card>
         <CardContent className="p-0">
-          <p className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-900">
+          <p className="border-b border-line px-4 py-3 text-sm font-semibold text-heading">
             {total} {total === 1 ? "transaction" : "transactions"}
           </p>
           {items.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-slate-500">No transactions match. Add your first entry above.</p>
+            <p className="px-4 py-6 text-sm text-muted">No transactions match. Add your first entry above.</p>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-line">
               {items.map((t) => (
                 <li key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <p className="truncate text-sm font-medium text-slate-900">
+                      <p className="truncate text-sm font-medium text-heading">
                         {t.description || (t.kind === "TRANSFER" ? "Transfer" : "Transaction")}
-                        {t.merchant ? <span className="font-normal text-slate-400"> · {t.merchant}</span> : null}
+                        {t.merchant ? <span className="font-normal text-faint"> · {t.merchant}</span> : null}
                       </p>
                       {t.categoryName ? (
                         <span
-                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-slate-500"
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-muted"
                           style={{ background: `${t.categoryColor}1a` }}
                         >
                           <span className="h-2 w-2 rounded-full" style={{ background: t.categoryColor ?? "#94a3b8" }} aria-hidden="true" />
@@ -354,15 +354,15 @@ export function TransactionsManager({ items, total, accounts, categories, filter
                         </span>
                       ) : null}
                       {t.kind === "TRANSFER" ? (
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">Transfer</span>
+                        <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">Transfer</span>
                       ) : null}
                       {t.shared ? (
-                        <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700">
+                        <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-700 dark:bg-primary-950/60 dark:text-primary-300">
                           Shared{t.recordedByName ? ` · ${t.recordedByName}` : ""}
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-0.5 text-xs text-slate-400">
+                    <p className="mt-0.5 text-xs text-faint">
                       {t.accountName} ·{" "}
                       {new Date(t.transactionDate).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
                     </p>
@@ -370,7 +370,7 @@ export function TransactionsManager({ items, total, accounts, categories, filter
                   <div className="flex shrink-0 items-center gap-3">
                     <p
                       className={`text-sm font-semibold tabular-nums ${
-                        t.amountMinor < 0 ? "text-red-600" : "text-emerald-600"
+                        t.amountMinor < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
                       }`}
                     >
                       {t.amountMinor < 0 ? "−" : "+"}
@@ -395,7 +395,7 @@ export function TransactionsManager({ items, total, accounts, categories, filter
           )}
         </CardContent>
       </Card>
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted">
         Delete an expense or income by removing its row. Transfer legs are edited from the Transfers page so
         the out leg and in leg always stay in sync.
       </p>

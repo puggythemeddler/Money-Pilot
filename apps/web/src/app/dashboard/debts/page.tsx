@@ -21,8 +21,8 @@ export default async function DebtsPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Debts</h1>
-        <p className="text-sm text-slate-500">Track what you owe and how much of it is paid off.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-heading">Debts</h1>
+        <p className="text-sm text-muted">Track what you owe and how much of it is paid off.</p>
       </header>
       <DebtsManager
         debts={debts.debts}

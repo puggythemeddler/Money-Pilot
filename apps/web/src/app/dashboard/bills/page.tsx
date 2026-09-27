@@ -23,8 +23,8 @@ export default async function BillsPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Bills</h1>
-        <p className="text-sm text-slate-500">Track recurring monthly bills and record payments in one tap.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-heading">Bills</h1>
+        <p className="text-sm text-muted">Track recurring monthly bills and record payments in one tap.</p>
       </header>
       <BillsManager
         bills={bills.bills}

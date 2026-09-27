@@ -2,7 +2,7 @@ import { forwardRef, type InputHTMLAttributes, type SelectHTMLAttributes } from 
 import { cn } from "@/lib/cn";
 
 const baseClasses =
-  "block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-primary-500 focus:outline-2 focus:outline-primary-600 disabled:cursor-not-allowed disabled:bg-slate-100 aria-invalid:border-red-500 aria-invalid:focus:outline-red-600";
+  "block w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-heading shadow-sm placeholder:text-faint focus:border-primary-500 focus:outline-2 focus:outline-primary-600 disabled:cursor-not-allowed disabled:bg-surface-2 aria-invalid:border-red-500 aria-invalid:focus:outline-red-600";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
   function Input({ className, type = "text", ...props }, ref) {

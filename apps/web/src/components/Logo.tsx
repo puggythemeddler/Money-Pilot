@@ -11,8 +11,8 @@ export function LogoMark(props: SVGProps<SVGSVGElement>) {
       />
       <defs>
         <linearGradient id="mp-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#0d9488" />
-          <stop offset="1" stopColor="#134e4a" />
+          <stop stopColor="#f97316" />
+          <stop offset="1" stopColor="#c2410c" />
         </linearGradient>
       </defs>
     </svg>
@@ -23,7 +23,7 @@ export function MoneyPilotLogo({ className }: { className?: string }) {
   return (
     <span className={`inline-flex items-center gap-2 ${className ?? ""}`}>
       <LogoMark className="h-7 w-7" />
-      <span className="text-lg font-semibold tracking-tight text-slate-900">
+      <span className="text-lg font-semibold tracking-tight text-heading">
         Money<span className="text-primary-600">Pilot</span>
       </span>
     </span>

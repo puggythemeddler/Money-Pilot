@@ -8,11 +8,13 @@ Everything you record stays yours. The product deliberately avoids unsolicited m
 no ads, no data brokerage, no financial product upsells. It only spends from an optional
 monthly core budget you choose explicitly.
 
-> Status: **Phase 3–5 complete + service split.** Authentication, invite-only mode, admin
+> Status: **All planned phases complete.** Authentication, invite-only mode, admin
 > foundation, data export / account deletion, accounts, categories, transactions,
 > income/expenses, transfers, budgets, debts, recurring bills, **shared households (joint
-> accounts for families/couples with per-member permissions)** and **optional Google
-> sign-in (OAuth + PKCE, linking from Settings)** are implemented and end-to-end tested.
+> accounts for families/couples with per-member permissions)**, **optional Google
+> sign-in (OAuth + PKCE, linking from Settings)**, **in-session change-password with
+> other-session revocation**, and the **orange/blue light + dark redesign** are
+> implemented and end-to-end tested.
 > The app is split into a standalone Hono API (`apps/api`, Render) and a frontend-only
 > web app (`apps/web`, Vercel) proxying `/api/*` same-origin. CI is fully green
 > (lint/typecheck/unit tests/build, dependency audit, Semgrep, Playwright browser e2e,
@@ -248,6 +250,15 @@ and can be re-run — subsequent runs are a no-op.
   impossible until the user sets one via the email-verified forgot-password flow). Settings
   lists connected identities and requires the account password to disconnect. Unset
   credentials disable the feature gracefully.
+- **Change password while signed in** (`/api/auth/change-password`) re-verifies the current
+  password, applies the shared password policy (8–72 chars, letter + digit, must differ
+  from the current one), then revokes every other session immediately — the device that
+  changed it stays signed in. Google-only accounts set their first password through the
+  email-verified forgot-password flow.
+- **Theming**: light and dark, warm orange brand with a blue informational accent. The
+  stored choice (or the system preference) is applied before first paint by an inline
+  script — no theme flash — and persisted in `localStorage`. See
+  [DESIGN.md](DESIGN.md).
 
 ### Security tooling
 
@@ -318,7 +329,7 @@ Only available to `ADMIN` users.
 ```sh
 npm run dev           # development servers (apps/api :4000 + apps/web :3000)
 npm run build         # production build (all workspaces)
-npm run test          # unit tests (packages/shared)
+npm run test          # unit tests (packages/shared + apps/api)
 npm run e2e           # Playwright browser e2e (apps/e2e; rebuilds both apps every run)
 npm run lint          # eslint (all workspaces)
 npm run typecheck     # TypeScript checks (all workspaces)

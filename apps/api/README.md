@@ -20,7 +20,9 @@ Every endpoint lives under `/api` and speaks the shared JSON envelope
 - `GET  /api/health` — liveness probe.
 - `POST /api/auth/register|login|refresh|logout|logout-all`
 - `GET|PATCH /api/auth/me`, `POST /api/auth/forgot-password|reset-password|
-  verify-email|resend-verification`, `GET|POST /api/auth/devices`
+  verify-email|resend-verification`, `POST /api/auth/change-password`
+  (re-verifies the current password, revokes every other session),
+  `GET|POST /api/auth/devices`
 - `GET /api/auth/google/start|callback` (redirect-based; PKCE S256, signed
   transaction cookie), `GET /api/auth/identities`,
   `DELETE /api/auth/identities/:provider` (password re-auth; Google-only

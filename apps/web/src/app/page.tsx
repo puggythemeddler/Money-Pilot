@@ -49,15 +49,15 @@ export default function LandingPage() {
 
       <main>
         <section className="mx-auto max-w-4xl px-4 pb-16 pt-14 text-center sm:px-6 sm:pt-20">
-          <p className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-3 py-1 text-sm font-medium text-primary-800">
+          <p className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-3 py-1 text-sm font-medium text-primary-800 dark:border-primary-900 dark:bg-primary-950/60 dark:text-primary-200">
             Built for Kenya · Kenyan Shillings first
           </p>
-          <h1 className="text-balance text-4xl font-bold leading-tight tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+          <h1 className="text-balance text-4xl font-bold leading-tight tracking-tight text-heading sm:text-5xl lg:text-6xl">
             Understand your money.
             <br />
             <span className="text-primary-600">Own your debt.</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg text-slate-600">
+          <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg text-body">
             MoneyPilot gives you one honest, calm picture of your finances — income, expenses, debts,
             bills and budgets — on web, Android and iPhone.
           </p>
@@ -71,7 +71,7 @@ export default function LandingPage() {
               </Button>
             </a>
           </div>
-          <p className="mt-6 text-sm text-slate-500">
+          <p className="mt-6 text-sm text-muted">
             Free to start. No card required. Your data stays yours.
           </p>
         </section>
@@ -81,21 +81,21 @@ export default function LandingPage() {
             {features.map((feature) => (
               <div
                 key={feature.title}
-                className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+                className="rounded-2xl border border-line bg-surface p-6 shadow-sm"
               >
-                <h2 className="text-base font-semibold text-slate-900">{feature.title}</h2>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">{feature.description}</p>
+                <h2 className="text-base font-semibold text-heading">{feature.title}</h2>
+                <p className="mt-2 text-sm leading-relaxed text-body">{feature.description}</p>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="border-t border-slate-200 bg-white">
+        <section className="border-t border-line bg-surface">
           <div className="mx-auto max-w-6xl px-4 py-16 text-center sm:px-6">
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+            <h2 className="text-2xl font-bold tracking-tight text-heading sm:text-3xl">
               A clear picture, even when it&apos;s uncomfortable
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-pretty text-slate-600">
+            <p className="mx-auto mt-4 max-w-2xl text-pretty text-body">
               MoneyPilot was designed for people working through debt. No judgements, no hype — just
               accurate numbers, honest estimates, and tools to plan your way out.
             </p>
@@ -106,8 +106,8 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-slate-200 bg-slate-50">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-8 text-sm text-slate-500 sm:flex-row sm:px-6">
+      <footer className="border-t border-line bg-page">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
           <MoneyPilotLogo className="scale-95" />
           <p>MoneyPilot — built for Kenya, ready for the world.</p>
         </div>

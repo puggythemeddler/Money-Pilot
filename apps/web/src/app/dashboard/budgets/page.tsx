@@ -21,8 +21,8 @@ export default async function BudgetsPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Budgets</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-2xl font-bold tracking-tight text-heading">Budgets</h1>
+        <p className="text-sm text-muted">
           Give each month a limit and track spending against it automatically.
         </p>
       </header>

@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   AppError,
   ErrorCodes,
+  changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
   refreshSchema,
@@ -22,6 +23,7 @@ import {
   findSessionByToken,
   revokeAllSessions,
   revokeDeviceSessions,
+  revokeOtherSessions,
   revokeSession,
   rotateSession,
 } from "@/lib/sessions";
@@ -473,6 +475,45 @@ auth.post("/auth/reset-password", async (c) => {
     });
 
     return clearAuthCookies(ok({ reset: true }));
+  } catch (err) {
+    return fail(err, requestId);
+  }
+});
+
+auth.post("/auth/change-password", async (c) => {
+  const requestId = newRequestId();
+  const req = c.req.raw;
+  try {
+    const context = await requireUser(req);
+    const ip = getClientIp(req);
+    authRateLimit(`change-password:${context.user.id}:${ip}`);
+
+    const raw = await parseJson(req);
+    const input = validate(changePasswordSchema, raw);
+
+    const user = await prisma.user.findUnique({
+      where: { id: context.user.id },
+      select: { passwordHash: true },
+    });
+    if (!user || !(await verifyPassword(input.currentPassword, user.passwordHash))) {
+      throw new AppError(ErrorCodes.INVALID_CREDENTIALS, "Your current password is incorrect.", 401);
+    }
+
+    const passwordHash = await hashPassword(input.password);
+    await prisma.user.update({ where: { id: context.user.id }, data: { passwordHash } });
+
+    // The device that changed the password stays signed in; every other
+    // session is revoked immediately.
+    await revokeOtherSessions(context.user.id, context.sessionId);
+    await writeAudit({
+      userId: context.user.id,
+      action: AUDIT_ACTIONS.PASSWORD_CHANGED,
+      entityType: "User",
+      entityId: context.user.id,
+      ip,
+    });
+
+    return ok({ changed: true });
   } catch (err) {
     return fail(err, requestId);
   }

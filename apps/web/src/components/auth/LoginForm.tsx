@@ -71,12 +71,12 @@ export function LoginForm({ initialError }: { initialError: string | null }) {
           />
         </Field>
 
-        <label className="flex items-center gap-2 text-sm text-slate-600">
+        <label className="flex items-center gap-2 text-sm text-body">
           <input
             type="checkbox"
             checked={remember}
             onChange={(e) => setRemember(e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+            className="h-4 w-4 rounded border-line text-primary-600 focus:ring-primary-500"
           />
           Keep me signed in
         </label>

@@ -6,10 +6,11 @@ product coherent. It is written for anyone adding screens or components to
 the web app (`apps/web`).
 
 The short version: **MoneyPilot is a hand-rolled, shadcn/ui-style component
-foundation on Tailwind CSS v4 tokens — calm deep teal on a neutral slate
-base — optimized for reading money accurately.** When a new shared component
-is needed, extend `src/components/ui/` in this style rather than introducing
-another UI library.
+foundation on Tailwind CSS v4 tokens — warm orange brand with a calm blue
+accent on warm stone neutrals, in light and dark — optimized for reading
+money accurately.** When a new shared component is needed, extend
+`src/components/ui/` in this style rather than introducing another UI
+library.
 
 ## 1. Design principles
 
@@ -19,32 +20,56 @@ another UI library.
 2. **Derived, never invented.** Every figure on screen is computed from the
    user's own data. Empty states say so plainly ("No spending recorded this
    month yet.") instead of showing zeros or placeholders that look like data.
-3. **Calm and quiet.** One accent color (teal), generous white space, slate
-   neutrals. Money is stressful enough; the UI shouldn't be.
-4. **Accessible by default.** Focus rings on everything, labels on every
-   input, errors as `role=alert`, status conveyed by sign/text and never by
-   color alone.
+3. **Calm and quiet.** Orange is the single brand accent (actions, links,
+   focus), blue is reserved for information; warm stone neutrals and generous
+   white space. Money is stressful enough; the UI shouldn't be.
+4. **Accessible by default, in both themes.** Focus rings on everything,
+   labels on every input, errors as `role=alert`, status conveyed by
+   sign/text and never by color alone.
 
 ## 2. Design tokens (`src/app/globals.css`)
 
 Tokens are Tailwind v4 `@theme` variables — there is exactly one source of
-truth, no theme config file.
+truth, no theme config file. Two layers:
 
-| Token        | Value                              | Use                                  |
-| ------------ | ---------------------------------- | ------------------------------------ |
-| `brand-*`    | Teal scale, 50 `#f0fdfa` → 950 `#042f2e` | The palette itself               |
-| `primary-*`  | Same teal scale (semantic alias)   | Interactive accents, links, focus    |
-| `--color-primary-600` | `#0d9488`                 | **The MoneyPilot teal** — buttons, focus, selection |
-| Neutrals     | Tailwind's built-in `slate` scale  | Text, borders, backgrounds          |
-| `font-sans`  | System stack (Segoe UI/Roboto/…)   | All UI text                         |
-| `font-mono`  | System mono stack                  | Tabular contexts if needed          |
+- **Static palette scales** — `primary-*` is the orange brand scale
+  (50 `#fff7ed` → 950 `#431407`; `primary-600 #ea580c` is the MoneyPilot
+  orange: buttons, links, focus, selection). `accent-*` is the blue scale,
+  reserved for informational emphasis (info alerts, charts).
+- **Semantic runtime tokens** — plain CSS variables (`--page`, `--surface`,
+  `--surface-2`, `--line`, `--heading`, `--body`, `--muted`, `--faint`)
+  re-exported through `@theme inline`, so utilities like `bg-surface` /
+  `text-heading` / `border-line` resolve at paint time and **flip with the
+  `.dark` class on `<html>** — one class serves both themes. Prefer these
+  over hardcoded neutral scales everywhere.
+
+| Token          | Light → Dark                        | Use                              |
+| -------------- | ----------------------------------- | -------------------------------- |
+| `page`         | `#fafaf9` → `#0d0c0b`               | App background                   |
+| `surface`      | `#ffffff` → `#191715`               | Cards, nav, inputs               |
+| `surface-2`    | `#f5f5f4` → `#23201e`               | Chips, hover rows, nested panels |
+| `line`         | `#e7e5e4` → `#322f2c`               | Borders, dividers                |
+| `heading`      | `#1c1917` → `#fafaf9`               | Primary text                     |
+| `body`         | `#57534e` → `#d6d3d1`               | Secondary text                   |
+| `muted`        | `#79716b` → `#a8a29e`               | Tertiary text                    |
+| `faint`        | `#a8a29e` → `#78716c`               | Timestamps, placeholders         |
 
 Base layer rules (also in `globals.css`):
 
-- Body: `bg-slate-50 text-slate-900`, antialiased, optimized legibility.
-- Selection: `bg-primary-600/20 text-primary-900`.
+- Body: `bg-page text-heading`, antialiased, optimized legibility.
+- Selection: `bg-primary-600/25` (orange tint), `text-primary-900` /
+  `dark:text-primary-200`.
 - Global focus: `:focus-visible { outline-2 outline-offset-2 outline-primary-600 }`
   — every interactive element is focus-visible styled without per-component work.
+
+**Dark mode mechanics:** the `.dark` class lives on `<html>` (Tailwind v4
+`@custom-variant dark`). A blocking inline script in the root layout applies
+the stored choice (`localStorage "mp-theme"`) or the system preference before
+first paint — no theme flash. `ThemeToggle` (`src/components/ThemeToggle.tsx`,
+in the sidebar, the auth layout and Settings on mobile) flips the class and
+persists the choice. Saturated status colors (red/emerald/amber) pair with
+`dark:text-*-400` variants; tinted chips and callouts pair with
+`dark:bg-*-950/60`.
 
 Status colors are used semantically and sparingly: red-600 for money out and
 errors, emerald-600 for money in and successes, amber for warnings
@@ -57,11 +82,12 @@ Hand-rolled shadcn-style primitives. No component library dependency, no
 CLI-generated registry — this directory *is* the component foundation, kept
 deliberately small:
 
-- **`Button`** — variants `primary` (teal), `secondary` (slate-900),
-  `ghost`, `outline`, `danger` (red-600); sizes `sm`/`md`/`lg`; built-in
-  `loading` prop that disables the button, swaps in a spinner, and sets
-  `aria-busy`. Default is `primary`/`md`.
-- **`Input`, `Select`, `Textarea`** — consistent border (`slate-300`),
+- **`Button`** — variants `primary` (orange `primary-600`), `secondary`
+  (inverted: `bg-heading text-page` — dark button in light, light button in
+  dark), `ghost`, `outline`, `danger` (red-600); sizes `sm`/`md`/`lg`;
+  built-in `loading` prop that disables the button, swaps in a spinner, and
+  sets `aria-busy`. Default is `primary`/`md`.
+- **`Input`, `Select`, `Textarea`** — consistent border (`border-line`),
   radius, focus ring; money inputs add `inputMode="decimal"`.
 - **`Field`** — label + control + optional hint; every control has a `htmlFor`
   pair. Use it for every form field; never a bare input.
@@ -86,7 +112,8 @@ Rules for extending the foundation:
 
 - **App shell:** `Sidebar` (desktop ≥ lg, sticky, full nav) + `BottomNav`
   (mobile, the five core sections). The nav has `aria-label`s
-  ("Dashboard navigation" / "Mobile navigation"). Unbuilt sections appear
+  ("Dashboard navigation" / "Mobile navigation"); the active route gets an
+  orange active state (`aria-current="page"`). Unbuilt sections appear
   as visibly-disabled items ("Calendar soon") — honest about scope.
 - **Auth pages** are a single centered Card on the plain background; no nav.
 - **Manager pages** (accounts, transactions, transfers, budgets, debts,
@@ -120,7 +147,7 @@ These are invariants, not preferences:
 7. **Destructive or derived-honest actions** (archive, delete) keep history
    intact and say so; confirmations are inline, not modal.
 8. **Shared-household items are labeled, never silently mixed**: joint
-   accounts carry a teal `Shared · <household>` chip, shared transactions a
+   accounts carry an orange `Shared · <household>` chip, shared transactions a
    `Shared · <recorder>` chip (attribution), and account selects append
    `· shared`. Household-scope money keeps the same rules as personal money —
    `formatMoney`, explicit signs, `tabular-nums`.
@@ -158,6 +185,8 @@ counts up invites misreading).
 
 - Tokens and base styles: `apps/web/src/app/globals.css`
 - Primitives: `apps/web/src/components/ui/`
+- Theme switching: `apps/web/src/components/ThemeToggle.tsx` + the no-flash
+  script in `apps/web/src/app/layout.tsx`
 - Money and currency domain rules: `packages/shared/src/money.ts`,
   `packages/shared/src/currency.ts`
 - Example manager (forms + filters + list): `apps/web/src/components/finance/TransactionsManager.tsx`

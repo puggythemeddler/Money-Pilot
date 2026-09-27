@@ -17,8 +17,8 @@ export default async function CategoriesPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Categories</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-2xl font-bold tracking-tight text-heading">Categories</h1>
+        <p className="text-sm text-muted">
           Organise income and expenses so reports say something useful.
         </p>
       </header>

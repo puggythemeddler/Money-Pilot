@@ -159,6 +159,18 @@ export async function revokeAllSessions(userId: string): Promise<void> {
   });
 }
 
+/**
+ * Revokes every active session except the given one. Used by the
+ * change-password flow: the device that changed the password stays signed
+ * in, everything else is signed out.
+ */
+export async function revokeOtherSessions(userId: string, keepSessionId: string): Promise<void> {
+  await prisma.session.updateMany({
+    where: { userId, revokedAt: null, NOT: { id: keepSessionId } },
+    data: { revokedAt: new Date() },
+  });
+}
+
 export async function revokeDeviceSessions(userId: string, deviceId: string): Promise<void> {
   await prisma.session.updateMany({
     where: { userId, deviceId, revokedAt: null },

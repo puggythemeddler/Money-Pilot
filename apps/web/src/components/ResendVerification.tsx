@@ -35,8 +35,8 @@ export function ResendVerification() {
       <Button variant="outline" size="sm" onClick={resend} loading={busy}>
         Resend verification link
       </Button>
-      {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
-      {error ? <p className="text-sm text-red-600" role="alert">{error}</p> : null}
+      {message ? <p className="text-sm text-emerald-700 dark:text-emerald-400">{message}</p> : null}
+      {error ? <p className="text-sm text-red-600 dark:text-red-400" role="alert">{error}</p> : null}
     </div>
   );
 }

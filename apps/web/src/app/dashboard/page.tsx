@@ -41,13 +41,13 @@ export default async function DashboardPage() {
   const currency = auth.user.preferredCurrency;
 
   const monthNet = summary.month.netMinor;
-  const monthNetClass = monthNet < 0 ? "text-red-600" : "text-emerald-600";
+  const monthNetClass = monthNet < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400";
 
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Karibu, {firstName}</h1>
-        <p className="text-sm text-slate-500">Your balances, cash flow and spending at a glance.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-heading">Karibu, {firstName}</h1>
+        <p className="text-sm text-muted">Your balances, cash flow and spending at a glance.</p>
       </header>
 
       {!auth.user.emailVerified ? (
@@ -60,7 +60,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <CardDescription>Money in accounts</CardDescription>
-            <CardTitle className="text-2xl font-bold tabular-nums text-slate-900">
+            <CardTitle className="text-2xl font-bold tabular-nums text-heading">
               {formatMoney(summary.availableMinor, currency)}
             </CardTitle>
           </CardHeader>
@@ -68,7 +68,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <CardDescription>Spent this month</CardDescription>
-            <CardTitle className="text-2xl font-bold tabular-nums text-red-600">
+            <CardTitle className="text-2xl font-bold tabular-nums text-red-600 dark:text-red-400">
               {formatMoney(-summary.month.expenseMinor, currency)}
             </CardTitle>
             <CardDescription className="tabular-nums">
@@ -87,7 +87,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <CardDescription>All-time totals</CardDescription>
-            <CardTitle className="text-2xl font-bold tabular-nums text-slate-900">
+            <CardTitle className="text-2xl font-bold tabular-nums text-heading">
               {formatMoney(summary.allTime.incomeMinor - summary.allTime.expenseMinor, currency)}
             </CardTitle>
             <CardDescription className="tabular-nums">
@@ -101,18 +101,18 @@ export default async function DashboardPage() {
         <Card>
           <CardContent>
             <div className="flex items-start gap-3">
-              <Icons.users className="mt-0.5 h-5 w-5 text-teal-600" />
+              <Icons.users className="mt-0.5 h-5 w-5 text-primary-600" />
               <div className="space-y-1">
-                <p className="text-sm font-medium text-slate-900">
+                <p className="text-sm font-medium text-heading">
                   {summary.household.name} · shared finances
                 </p>
-                <p className="text-sm leading-relaxed text-slate-600">
+                <p className="text-sm leading-relaxed text-body">
                   Joint balances, each member&apos;s spending and shared recent activity live on the
                   household page — your personal ledger stays private.
                 </p>
                 <Link
                   href="/dashboard/household"
-                  className="mt-1 inline-block text-sm font-medium text-primary-700 hover:underline"
+                  className="mt-1 inline-block text-sm font-medium text-primary-700 hover:underline dark:text-primary-400"
                 >
                   Open household →
                 </Link>
@@ -126,16 +126,16 @@ export default async function DashboardPage() {
         <Card>
           <CardContent>
             <div className="flex items-start gap-3">
-              <Icons.wallet className="mt-0.5 h-5 w-5 text-slate-400" />
+              <Icons.wallet className="mt-0.5 h-5 w-5 text-faint" />
               <div className="space-y-1">
-                <p className="text-sm font-medium text-slate-900">Build your financial picture</p>
-                <p className="text-sm leading-relaxed text-slate-600">
+                <p className="text-sm font-medium text-heading">Build your financial picture</p>
+                <p className="text-sm leading-relaxed text-body">
                   Add your first account, then record expenses, income and transfers. Every number on this
                   dashboard comes straight from your data — we never show invented figures.
                 </p>
                 <Link
                   href="/dashboard/accounts"
-                  className="mt-1 inline-block text-sm font-medium text-primary-700 hover:underline"
+                  className="mt-1 inline-block text-sm font-medium text-primary-700 hover:underline dark:text-primary-400"
                 >
                   Add an account →
                 </Link>
@@ -151,16 +151,16 @@ export default async function DashboardPage() {
                 <CardTitle>Accounts</CardTitle>
                 <CardDescription>{summary.accounts.length} accounts tracked</CardDescription>
               </div>
-              <Link href="/dashboard/accounts" className="text-sm font-medium text-primary-700 hover:underline">
+              <Link href="/dashboard/accounts" className="text-sm font-medium text-primary-700 hover:underline dark:text-primary-400">
                 Manage →
               </Link>
             </CardHeader>
             <CardContent className="p-0">
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-line">
                 {summary.accounts.slice(0, 5).map((a) => (
                   <li key={a.id} className="flex items-center justify-between gap-3 px-6 py-3">
-                    <p className="truncate text-sm font-medium text-slate-900">{a.name}</p>
-                    <p className="text-sm font-semibold tabular-nums text-slate-900">
+                    <p className="truncate text-sm font-medium text-heading">{a.name}</p>
+                    <p className="text-sm font-semibold tabular-nums text-heading">
                       {formatMoney(a.balanceMinor, a.currency)}
                     </p>
                   </li>
@@ -175,22 +175,22 @@ export default async function DashboardPage() {
                 <CardTitle>Top spending</CardTitle>
                 <CardDescription>This month by category</CardDescription>
               </div>
-              <Link href="/dashboard/transactions" className="text-sm font-medium text-primary-700 hover:underline">
+              <Link href="/dashboard/transactions" className="text-sm font-medium text-primary-700 hover:underline dark:text-primary-400">
                 All transactions →
               </Link>
             </CardHeader>
             <CardContent className="p-0">
               {summary.categorySpending.length === 0 ? (
-                <p className="px-6 py-6 text-sm text-slate-500">No spending recorded this month yet.</p>
+                <p className="px-6 py-6 text-sm text-muted">No spending recorded this month yet.</p>
               ) : (
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-line">
                   {summary.categorySpending.map((c) => (
                     <li key={c.categoryId ?? "none"} className="flex items-center justify-between gap-3 px-6 py-3">
                       <div className="flex min-w-0 items-center gap-2.5">
                         <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: c.color }} aria-hidden="true" />
-                        <p className="truncate text-sm font-medium text-slate-900">{c.categoryName}</p>
+                        <p className="truncate text-sm font-medium text-heading">{c.categoryName}</p>
                       </div>
-                      <p className="text-sm font-semibold tabular-nums text-red-600">{formatMoney(c.amountMinor, currency)}</p>
+                      <p className="text-sm font-semibold tabular-nums text-red-600 dark:text-red-400">{formatMoney(c.amountMinor, currency)}</p>
                     </li>
                   ))}
                 </ul>
@@ -204,25 +204,25 @@ export default async function DashboardPage() {
                 <CardTitle>Recent activity</CardTitle>
                 <CardDescription>Latest records across all accounts</CardDescription>
               </div>
-              <Link href="/dashboard/transactions" className="text-sm font-medium text-primary-700 hover:underline">
+              <Link href="/dashboard/transactions" className="text-sm font-medium text-primary-700 hover:underline dark:text-primary-400">
                 View all →
               </Link>
             </CardHeader>
             <CardContent className="p-0">
               {summary.recentTransactions.length === 0 ? (
-                <p className="px-6 py-6 text-sm text-slate-500">No transactions yet — record the first one.</p>
+                <p className="px-6 py-6 text-sm text-muted">No transactions yet — record the first one.</p>
               ) : (
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-line">
                   {summary.recentTransactions.map((t) => (
                     <li key={t.id} className="flex items-center justify-between gap-3 px-6 py-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                          <p className="truncate text-sm font-medium text-slate-900">
+                          <p className="truncate text-sm font-medium text-heading">
                             {t.description || (t.kind === "TRANSFER" ? "Transfer" : "Transaction")}
                           </p>
                           {t.categoryName ? (
                             <span
-                              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-slate-500"
+                              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-muted"
                               style={{ background: `${t.categoryColor}1a` }}
                             >
                               <span className="h-2 w-2 rounded-full" style={{ background: t.categoryColor ?? "#94a3b8" }} aria-hidden="true" />
@@ -230,7 +230,7 @@ export default async function DashboardPage() {
                             </span>
                           ) : null}
                         </div>
-                        <p className="mt-0.5 text-xs text-slate-400">
+                        <p className="mt-0.5 text-xs text-faint">
                           {t.accountName} ·{" "}
                           {new Date(t.transactionDate).toLocaleDateString(undefined, {
                             day: "numeric",
@@ -241,7 +241,7 @@ export default async function DashboardPage() {
                       </div>
                       <p
                         className={`shrink-0 text-sm font-semibold tabular-nums ${
-                          t.amountMinor < 0 ? "text-red-600" : "text-emerald-600"
+                          t.amountMinor < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
                         }`}
                       >
                         {t.amountMinor < 0 ? "−" : "+"}
@@ -256,8 +256,8 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <p className="text-sm text-slate-500">
-        Heads to <Link href="/dashboard/settings" className="font-medium text-slate-700 hover:underline">Settings</Link> to
+      <p className="text-sm text-muted">
+        Heads to <Link href="/dashboard/settings" className="font-medium text-body hover:underline">Settings</Link> to
         update your profile, currency or timezone.
       </p>
     </div>

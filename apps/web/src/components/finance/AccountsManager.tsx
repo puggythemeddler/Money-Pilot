@@ -140,11 +140,11 @@ export function AccountsManager({ accounts }: { accounts: AccountRow[] }) {
       <Card>
         <CardContent className="p-0">
           {accounts.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-slate-500">
+            <p className="px-4 py-6 text-sm text-muted">
               No accounts yet. Add your first account to start tracking money.
             </p>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-line">
               {accounts.map((row) => (
                 <li
                   key={row.id}
@@ -154,31 +154,31 @@ export function AccountsManager({ accounts }: { accounts: AccountRow[] }) {
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium text-slate-900">{row.name}</p>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                      <p className="truncate text-sm font-medium text-heading">{row.name}</p>
+                      <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">
                         {TYPE_LABELS[row.type] ?? row.type}
                       </span>
                       {row.archived ? (
-                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
                           Archived
                         </span>
                       ) : null}
                       {row.shared ? (
-                        <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700">
+                        <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-700 dark:bg-primary-950/60 dark:text-primary-300">
                           Shared{row.householdName ? ` · ${row.householdName}` : ""}
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-0.5 text-xs text-slate-400">
+                    <p className="mt-0.5 text-xs text-faint">
                       Opening balance {formatMoney(row.openingBalanceMinor, row.currency)}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <p className="text-sm font-semibold tabular-nums text-slate-900">
+                    <p className="text-sm font-semibold tabular-nums text-heading">
                       {formatMoney(row.balanceMinor, row.currency)}
                     </p>
                     {row.shared ? (
-                      <span className="text-xs text-slate-400">Managed in Household</span>
+                      <span className="text-xs text-faint">Managed in Household</span>
                     ) : (
                       <Button
                         variant="ghost"
@@ -199,14 +199,14 @@ export function AccountsManager({ accounts }: { accounts: AccountRow[] }) {
       </Card>
 
       <Card>
-        <CardContent className="text-sm text-slate-500">
+        <CardContent className="text-sm text-muted">
           Balances are always derived from your transactions — we never store them. Archiving an
           account hides it while keeping the history intact.{" "}
-          <Link href="/dashboard/transactions" className="font-medium text-primary-700 hover:underline">
+          <Link href="/dashboard/transactions" className="font-medium text-primary-700 hover:underline dark:text-primary-400">
             Add transactions
           </Link>{" "}
           or{" "}
-          <Link href="/dashboard/transfers" className="font-medium text-primary-700 hover:underline">
+          <Link href="/dashboard/transfers" className="font-medium text-primary-700 hover:underline dark:text-primary-400">
             transfer between accounts
           </Link>
           .

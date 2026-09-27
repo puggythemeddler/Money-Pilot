@@ -1,10 +1,11 @@
 # @moneypilot/e2e
 
-Playwright browser e2e suite for the Money Pilot app (Chromium, 29
-tests): the critical user paths — auth and session protection, Google
-sign-in's unconfigured path, accounts, transactions, transfers, dashboard
-aggregation, and households — run against the real production topology
-(web app + standalone API behind the `/api/*` proxy).
+Playwright browser e2e suite for the Money Pilot app (Chromium, 31
+tests): the critical user paths — auth and session protection, password
+change with other-session revocation, the light/dark theme toggle,
+Google sign-in's unconfigured path, accounts, transactions, transfers,
+dashboard aggregation, and households — run against the real production
+topology (web app + standalone API behind the `/api/*` proxy).
 
 ## Run
 
@@ -58,7 +59,7 @@ npx playwright install chromium
 
 | Spec                 | Covers                                                              |
 | -------------------- | -------------------------------------------------------------------- |
-| `auth.spec.ts`       | register/login/logout, invalid + weak passwords, protected-route redirects, tampered session cookie, 401 after logout, re-login |
+| `auth.spec.ts`       | register/login/logout, invalid + weak passwords, protected-route redirects, tampered session cookie, 401 after logout, re-login, password change (old password dies, new one works), theme toggle + persistence |
 | `google-auth.spec.ts` | unconfigured "Continue with Google" redirects (login, register, Settings), forged callback refused, identities endpoint, unlinking a non-connected provider |
 | `accounts.spec.ts`   | create/archive/unarchive, multi-currency accounts, rename           |
 | `transactions.spec.ts` | income + expense entry, kind + search filters, USD formatting, API pagination |

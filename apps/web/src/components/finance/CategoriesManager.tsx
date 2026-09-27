@@ -70,9 +70,9 @@ export function CategoriesManager({ categories }: { categories: CategoryRow[] })
 
   function list(rows: CategoryRow[]) {
     return (
-      <ul className="divide-y divide-slate-100">
+      <ul className="divide-y divide-line">
         {rows.length === 0 ? (
-          <li className="px-4 py-3 text-sm text-slate-500">None yet.</li>
+          <li className="px-4 py-3 text-sm text-muted">None yet.</li>
         ) : (
           rows.map((row) => (
             <li
@@ -81,15 +81,15 @@ export function CategoriesManager({ categories }: { categories: CategoryRow[] })
             >
               <div className="flex min-w-0 items-center gap-2.5">
                 <span className="h-3.5 w-3.5 shrink-0 rounded-full" style={{ background: row.color }} aria-hidden="true" />
-                <p className="truncate text-sm font-medium text-slate-900">{row.name}</p>
+                <p className="truncate text-sm font-medium text-heading">{row.name}</p>
                 {row.archived ? (
-                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
                     Archived
                   </span>
                 ) : null}
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-xs tabular-nums text-slate-400">
+                <span className="text-xs tabular-nums text-faint">
                   {row.transactionCount} {row.transactionCount === 1 ? "transaction" : "transactions"}
                 </span>
                 <Button variant="ghost" size="sm" onClick={() => toggleArchived(row)} disabled={busyId !== null} loading={busyId === row.id}>
@@ -118,7 +118,7 @@ export function CategoriesManager({ categories }: { categories: CategoryRow[] })
               </Select>
             </Field>
             <div>
-              <p className="mb-1.5 block text-sm font-medium text-slate-700">Colour</p>
+              <p className="mb-1.5 block text-sm font-medium text-body">Colour</p>
               <div className="flex flex-wrap gap-2">
                 {COLOR_PRESETS.map((c) => (
                   <button
@@ -128,7 +128,7 @@ export function CategoriesManager({ categories }: { categories: CategoryRow[] })
                     onClick={() => setColor(c)}
                     className={cn(
                       "h-7 w-7 rounded-full transition-transform",
-                      color === c ? "ring-2 ring-slate-900 ring-offset-2" : "hover:scale-110",
+                      color === c ? "ring-2 ring-heading ring-offset-2 ring-offset-page" : "hover:scale-110",
                     )}
                     style={{ background: c }}
                   />
@@ -151,16 +151,16 @@ export function CategoriesManager({ categories }: { categories: CategoryRow[] })
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <p className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-900">Expenses</p>
+          <p className="border-b border-line px-4 py-3 text-sm font-semibold text-heading">Expenses</p>
           <CardContent className="p-0">{list(grouped.EXPENSE)}</CardContent>
         </Card>
         <Card>
-          <p className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-900">Income</p>
+          <p className="border-b border-line px-4 py-3 text-sm font-semibold text-heading">Income</p>
           <CardContent className="p-0">{list(grouped.INCOME)}</CardContent>
         </Card>
       </div>
 
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted">
         Categories are shared across expenses and income but the kind controls where they appear.
         Archiving keeps history intact.
       </p>

@@ -13,15 +13,28 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0d9488",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fafaf9" },
+    { media: "(prefers-color-scheme: dark)", color: "#0d0c0b" },
+  ],
   width: "device-width",
   initialScale: 1,
 };
 
+/**
+ * Runs before first paint (blocking, first element in <body>) so the theme
+ * class is on <html> before anything renders — no light/dark flash. The
+ * stored choice wins; without one the system preference is followed.
+ */
+const themeInitScript = `(function(){try{var t=localStorage.getItem("mp-theme");var d=t?t==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;if(d){document.documentElement.classList.add("dark")}}catch(e){}})();`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-dvh bg-slate-50 font-sans text-slate-900 antialiased">{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-dvh bg-page font-sans text-heading antialiased">
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        {children}
+      </body>
     </html>
   );
 }

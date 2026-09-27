@@ -61,19 +61,19 @@ export function ConnectedAccountsSection({ initialIdentities }: { initialIdentit
       {notice ? <Alert variant="success">{notice}</Alert> : null}
 
       {identities.length === 0 ? (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           No connected sign-in providers. You can sign in with your email and password.
         </p>
       ) : (
-        <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+        <ul className="divide-y divide-line rounded-xl border border-line bg-surface">
           {identities.map((identity) => (
             <li key={identity.provider} className="px-4 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-900">
+                  <p className="truncate text-sm font-medium text-heading">
                     {providerLabel(identity.provider)}
                   </p>
-                  <p className="mt-0.5 truncate text-xs text-slate-400">
+                  <p className="mt-0.5 truncate text-xs text-faint">
                     Connected as {identity.emailAtLink} ·{" "}
                     {new Date(identity.linkedAt).toLocaleDateString()}
                   </p>
@@ -135,9 +135,9 @@ export function ConnectedAccountsSection({ initialIdentities }: { initialIdentit
       {!googleConnected ? (
         <GoogleButton linkMode label="Connect Google account" />
       ) : (
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-faint">
           To disconnect or delete a Google-only account, first set a password using the{" "}
-          <a href="/forgot-password" className="font-medium text-primary-700 hover:text-primary-800">
+          <a href="/forgot-password" className="font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300">
             forgot password
           </a>{" "}
           flow, then come back.

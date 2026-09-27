@@ -195,7 +195,7 @@ export function TransfersManager({ transfers, accounts }: { transfers: TransferI
       {editing ? (
         <Card>
           <CardContent>
-            <p className="mb-3 text-sm font-semibold text-slate-900">
+            <p className="mb-3 text-sm font-semibold text-heading">
               Edit transfer · {editing.fromAccountName} → {editing.toAccountName}
             </p>
             <form onSubmit={saveEdit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -259,27 +259,27 @@ export function TransfersManager({ transfers, accounts }: { transfers: TransferI
       ) : null}
 
       <Card>
-        <p className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-900">
+        <p className="border-b border-line px-4 py-3 text-sm font-semibold text-heading">
           {transfers.length} {transfers.length === 1 ? "transfer" : "transfers"}
         </p>
         <CardContent className="p-0">
           {transfers.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-slate-500">
+            <p className="px-4 py-6 text-sm text-muted">
               No transfers yet. Move money between your own accounts — it is recorded as an out leg and an in
               leg so nothing is double-counted.
             </p>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-line">
               {transfers.map((t) => {
                 const isCross = t.currency !== t.toCurrency;
                 return (
                   <li key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-900">
+                      <p className="truncate text-sm font-medium text-heading">
                         {t.fromAccountName} → {t.toAccountName}
-                        {t.description ? <span className="font-normal text-slate-400"> · {t.description}</span> : null}
+                        {t.description ? <span className="font-normal text-faint"> · {t.description}</span> : null}
                       </p>
-                      <p className="mt-0.5 text-xs text-slate-400">
+                      <p className="mt-0.5 text-xs text-faint">
                         {new Date(t.transactionDate).toLocaleDateString(undefined, {
                           day: "numeric",
                           month: "short",
@@ -293,10 +293,10 @@ export function TransfersManager({ transfers, accounts }: { transfers: TransferI
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
-                      <p className="text-right text-sm font-semibold tabular-nums text-slate-900">
+                      <p className="text-right text-sm font-semibold tabular-nums text-heading">
                         {formatMoney(t.amountMinor, t.currency)}
                         {isCross ? (
-                          <span className="block text-xs font-normal text-slate-400">
+                          <span className="block text-xs font-normal text-faint">
                             → {formatMoney(t.toAmountMinor, t.toCurrency)}
                           </span>
                         ) : null}
@@ -316,7 +316,7 @@ export function TransfersManager({ transfers, accounts }: { transfers: TransferI
         </CardContent>
       </Card>
 
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted">
         Same-currency transfers need no rate. To move money between accounts in different currencies, give an
         exchange rate (1 unit of the source = X units of the destination); the destination leg is converted
         exactly and recorded in the destination account&apos;s own currency. Deleting a transfer removes both

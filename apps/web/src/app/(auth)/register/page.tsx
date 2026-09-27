@@ -25,9 +25,9 @@ export default async function RegisterPage({
       <CardContent>
         <div className="space-y-5">
           <RegisterForm initialError={message} />
-          <p className="text-center text-sm text-slate-500">
+          <p className="text-center text-sm text-muted">
             Already have an account?{" "}
-            <a href="/login" className="font-medium text-primary-700 hover:text-primary-800">
+            <a href="/login" className="font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300">
               Log in
             </a>
           </p>

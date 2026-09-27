@@ -31,10 +31,10 @@ export default async function LoginPage({
             <LoginForm initialError={message} />
           </div>
           <div className="flex items-center justify-between text-sm">
-            <a href="/register" className="font-medium text-primary-700 hover:text-primary-800">
+            <a href="/register" className="font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300">
               Create an account
             </a>
-            <a href="/forgot-password" className="font-medium text-primary-700 hover:text-primary-800">
+            <a href="/forgot-password" className="font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300">
               Forgot password?
             </a>
           </div>

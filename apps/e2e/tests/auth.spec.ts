@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginViaUI, logoutViaUI, registerViaUI, uniqueEmail } from "./helpers";
+import { E2E_PASSWORD, loginViaUI, logoutViaUI, registerViaUI, uniqueEmail } from "./helpers";
 
 test("protected pages redirect signed-out users to /login", async ({ page }) => {
   await page.goto("/dashboard");
@@ -70,4 +70,48 @@ test("password validation rejects weak passwords", async ({ page }) => {
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page.getByRole("alert").first()).toBeVisible();
   await expect(page).toHaveURL(/\/register/);
+});
+
+test("changing the password keeps this device and revokes the old one", async ({ page }) => {
+  const email = await registerViaUI(page, "Auth Tester");
+  const newPassword = "N3w-Secret-9!";
+
+  await page.goto("/dashboard/settings");
+  await page.fill("#currentPassword", E2E_PASSWORD);
+  await page.fill("#newPassword", newPassword);
+  await page.fill("#confirmPassword", newPassword);
+  await page.getByRole("button", { name: "Change password" }).click();
+  await expect(page.getByText(/Password updated/)).toBeVisible();
+
+  // Leave Settings before logging out: the settings page has several
+  // "Sign out"-labeled buttons (device list), which would break the helper.
+  await page.goto("/dashboard");
+  await logoutViaUI(page);
+
+  // The old password no longer works...
+  await page.goto("/login");
+  await page.fill("#email", email);
+  await page.fill("#password", E2E_PASSWORD);
+  await page.getByRole("button", { name: "Log in" }).click();
+  await expect(page.getByRole("alert").first()).toBeVisible();
+  await expect(page).toHaveURL(/\/login/);
+
+  // ...the new one does.
+  await page.fill("#password", newPassword);
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.waitForURL("**/dashboard");
+  await expect(page.getByRole("heading", { name: /Karibu, Auth/ })).toBeVisible();
+});
+
+test("the theme toggle switches and persists the dark theme", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page.locator("html")).not.toHaveClass(/dark/);
+
+  await page.getByRole("button", { name: "Toggle dark mode" }).click();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  expect(await page.evaluate(() => localStorage.getItem("mp-theme"))).toBe("dark");
+
+  // The stored choice survives a reload (the no-flash script re-applies it).
+  await page.reload();
+  await expect(page.locator("html")).toHaveClass(/dark/);
 });

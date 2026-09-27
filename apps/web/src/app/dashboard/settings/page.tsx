@@ -4,9 +4,11 @@ import { getServerUser, serverFetch } from "@/lib/server-api";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConnectedAccountsSection, type ConnectedIdentity } from "@/components/settings/ConnectedAccountsSection";
+import { ChangePasswordSection } from "@/components/settings/ChangePasswordSection";
 import { DevicesSection, type SettingsDevice } from "@/components/settings/DevicesSection";
 import { ProfileForm } from "@/components/settings/ProfileForm";
 import { PrivacySection } from "@/components/settings/PrivacySection";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { oauthErrorMessage } from "@/lib/oauth-errors";
 
 export const metadata: Metadata = {
@@ -33,9 +35,15 @@ export default async function SettingsPage({
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Settings</h1>
-        <p className="text-sm text-slate-500">Profile, preferences, security and devices.</p>
+      <header className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight text-heading">Settings</h1>
+          <p className="text-sm text-muted">Profile, preferences, security and devices.</p>
+        </div>
+        {/* Mobile has no sidebar — expose the theme switch here (lg:hidden). */}
+        <div className="lg:hidden">
+          <ThemeToggle />
+        </div>
       </header>
 
       {errorMessage ? <Alert variant="error">{errorMessage}</Alert> : null}
@@ -101,13 +109,17 @@ export default async function SettingsPage({
         <CardHeader>
           <CardTitle>Change password</CardTitle>
           <CardDescription>
-            Coming with the security phase. For now, use the{" "}
-            <a href="/forgot-password" className="font-medium text-primary-700 hover:text-primary-800">
+            Re-verifies your current password, then signs out every other device. Signed in
+            with Google only? Set a password via{" "}
+            <a href="/forgot-password" className="font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300">
               forgot password
             </a>{" "}
-            flow — it signs you out everywhere after resetting.
+            first.
           </CardDescription>
         </CardHeader>
+        <CardContent>
+          <ChangePasswordSection />
+        </CardContent>
       </Card>
     </div>
   );

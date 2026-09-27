@@ -14,10 +14,10 @@ const variantClasses: Record<Variant, string> = {
   primary:
     "bg-primary-600 text-white shadow-sm hover:bg-primary-700 focus-visible:outline-primary-700 disabled:bg-primary-300",
   secondary:
-    "bg-slate-900 text-white shadow-sm hover:bg-slate-800 disabled:bg-slate-400",
-  ghost: "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
+    "bg-heading text-page shadow-sm hover:opacity-90 disabled:opacity-50",
+  ghost: "text-body hover:bg-surface-2 hover:text-heading",
   outline:
-    "border border-slate-300 bg-white text-slate-700 shadow-sm hover:bg-slate-50 hover:text-slate-900",
+    "border border-line bg-surface text-body shadow-sm hover:bg-surface-2 hover:text-heading",
   danger: "bg-red-600 text-white shadow-sm hover:bg-red-700 disabled:bg-red-300",
 };
 

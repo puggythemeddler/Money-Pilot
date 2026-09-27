@@ -186,7 +186,7 @@ export function BillsManager({
       {payTarget ? (
         <Card>
           <CardContent>
-            <p className="mb-3 text-sm font-semibold text-slate-900">
+            <p className="mb-3 text-sm font-semibold text-heading">
               Pay {payTarget.name} · {formatMoney(payTarget.amountMinor, payTarget.currency)}
             </p>
             <form onSubmit={payBill} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -211,7 +211,7 @@ export function BillsManager({
                 </Button>
               </div>
             </form>
-            <p className="mt-2 text-xs text-slate-400">
+            <p className="mt-2 text-xs text-faint">
               Recording a payment creates a real expense for this month on that account and marks the bill paid.
             </p>
           </CardContent>
@@ -221,7 +221,7 @@ export function BillsManager({
       {editing ? (
         <Card>
           <CardContent>
-            <p className="mb-3 text-sm font-semibold text-slate-900">Edit bill · {editing.name}</p>
+            <p className="mb-3 text-sm font-semibold text-heading">Edit bill · {editing.name}</p>
             <form onSubmit={saveEdit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Name" htmlFor="bl-edit-name">
                 <Input id="bl-edit-name" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
@@ -275,37 +275,37 @@ export function BillsManager({
       ) : null}
 
       <Card>
-        <p className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-900">
+        <p className="border-b border-line px-4 py-3 text-sm font-semibold text-heading">
           {bills.length} {bills.length === 1 ? "bill" : "bills"}
         </p>
         <CardContent className="p-0">
           {bills.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-slate-500">
+            <p className="px-4 py-6 text-sm text-muted">
               No bills yet. Add your recurring monthly obligations so paying them is one tap — each payment is a
               real expense on your accounts.
             </p>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-line">
               {bills.map((b) => {
                 const paidThisMonth = b.paidFor !== null && b.paidMinor > 0;
                 return (
                   <li key={b.id} className="flex items-center justify-between gap-3 px-4 py-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-900">
+                      <p className="truncate text-sm font-medium text-heading">
                         {b.name}
-                        {b.categoryName ? <span className="font-normal text-slate-400"> · {b.categoryName}</span> : null}
+                        {b.categoryName ? <span className="font-normal text-faint"> · {b.categoryName}</span> : null}
                       </p>
-                      <p className="mt-0.5 text-xs text-slate-400">
+                      <p className="mt-0.5 text-xs text-faint">
                         due day {b.dueDay} ·{" "}
                         {paidThisMonth ? (
-                          <span className="font-medium text-emerald-600">paid for {b.paidFor}</span>
+                          <span className="font-medium text-emerald-600 dark:text-emerald-400">paid for {b.paidFor}</span>
                         ) : (
-                          <span className="text-amber-600">not paid this month</span>
+                          <span className="text-amber-600 dark:text-amber-400">not paid this month</span>
                         )}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
-                      <p className="text-sm font-semibold tabular-nums text-slate-900">
+                      <p className="text-sm font-semibold tabular-nums text-heading">
                         {formatMoney(b.amountMinor, b.currency)}
                       </p>
                       {!paidThisMonth ? (
@@ -328,7 +328,7 @@ export function BillsManager({
         </CardContent>
       </Card>
 
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted">
         Bills are monthly. “Mark paid” records a real EXPENSE on the account you choose (in the bill&apos;s
         currency), links it to this bill and month, and updates your balances and budgets — so a paid bill is a
         genuine money movement.

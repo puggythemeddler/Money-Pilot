@@ -202,7 +202,7 @@ export function DebtsManager({ debts, categories }: { debts: DebtItem[]; categor
       {editing ? (
         <Card>
           <CardContent>
-            <p className="mb-3 text-sm font-semibold text-slate-900">Edit debt · {editing.name}</p>
+            <p className="mb-3 text-sm font-semibold text-heading">Edit debt · {editing.name}</p>
             <form onSubmit={saveEdit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Name" htmlFor="dt-edit-name">
                 <Input id="dt-edit-name" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
@@ -275,40 +275,40 @@ export function DebtsManager({ debts, categories }: { debts: DebtItem[]; categor
       ) : null}
 
       <Card>
-        <p className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-900">
+        <p className="border-b border-line px-4 py-3 text-sm font-semibold text-heading">
           {debts.length} {debts.length === 1 ? "debt" : "debts"}
         </p>
         <CardContent className="p-0">
           {debts.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-slate-500">
+            <p className="px-4 py-6 text-sm text-muted">
               No debts tracked yet. Add what you owe to see your remaining balance — payments are counted from
               your expenses automatically.
             </p>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-line">
               {debts.map((d) => {
                 const remainingPct = d.principalMinor > 0 ? Math.max(0, Math.min(100, (d.balanceMinor / d.principalMinor) * 100)) : 0;
                 return (
                   <li key={d.id} className="px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-900">
+                        <p className="truncate text-sm font-medium text-heading">
                           {d.name}
-                          <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                          <span className="ml-2 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">
                             {typeLabels[d.type] ?? d.type}
                           </span>
-                          {d.institution ? <span className="font-normal text-slate-400"> · {d.institution}</span> : null}
+                          {d.institution ? <span className="font-normal text-faint"> · {d.institution}</span> : null}
                         </p>
-                        <p className="mt-0.5 text-xs text-slate-400">
+                        <p className="mt-0.5 text-xs text-faint">
                           {d.interestRate ? <span>{d.interestRate}% annual · </span> : null}
                           {d.dueDay ? <span>due day {d.dueDay} · </span> : null}
                           {d.categoryName ? <span>payments via “{d.categoryName}”</span> : <span>no payments category</span>}
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-3">
-                        <p className="text-right text-sm font-semibold tabular-nums text-slate-900">
+                        <p className="text-right text-sm font-semibold tabular-nums text-heading">
                           {formatMoney(Math.max(0, d.balanceMinor), d.currency)}
-                          <span className="block text-xs font-normal text-slate-400">
+                          <span className="block text-xs font-normal text-faint">
                             paid {formatMoney(d.paidMinor, d.currency)} of {formatMoney(d.principalMinor, d.currency)}
                           </span>
                         </p>
@@ -320,8 +320,8 @@ export function DebtsManager({ debts, categories }: { debts: DebtItem[]; categor
                         </Button>
                       </div>
                     </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-full rounded-full bg-slate-700" style={{ width: `${remainingPct}%` }} />
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                      <div className="h-full rounded-full bg-heading" style={{ width: `${remainingPct}%` }} />
                     </div>
                   </li>
                 );
@@ -331,7 +331,7 @@ export function DebtsManager({ debts, categories }: { debts: DebtItem[]; categor
         </CardContent>
       </Card>
 
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted">
         Debts are tracked, not traded: your remaining balance is principal minus what you&apos;ve paid. Link a
         payments category and every expense on it counts as a payment automatically; record those expenses from
         the Transactions page.

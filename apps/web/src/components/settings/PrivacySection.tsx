@@ -65,10 +65,10 @@ export function PrivacySection() {
       {error ? <Alert variant="error">{error}</Alert> : null}
       {message ? <Alert variant="success">{message}</Alert> : null}
 
-      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-line p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="font-medium text-slate-900">Export your data</p>
-          <p className="text-sm text-slate-500">
+          <p className="font-medium text-heading">Export your data</p>
+          <p className="text-sm text-muted">
             Download everything we have for this account as JSON.
           </p>
         </div>
@@ -79,8 +79,8 @@ export function PrivacySection() {
 
       <form onSubmit={onDelete} className="space-y-4 rounded-xl border border-red-200 p-4">
         <div>
-          <p className="font-medium text-red-700">Delete this account</p>
-          <p className="text-sm text-slate-500">
+          <p className="font-medium text-red-700 dark:text-red-400">Delete this account</p>
+          <p className="text-sm text-muted">
             This signs you out on every device, removes your personal information, and marks the
             account deleted. It cannot be undone.
           </p>

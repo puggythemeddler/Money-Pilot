@@ -254,7 +254,7 @@ export function HouseholdManager({
             ) : null}
           </CardContent>
         </Card>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           Have an invite link from a family member? Open it while logged in to join their
           household.
         </p>
@@ -270,12 +270,12 @@ export function HouseholdManager({
         <CardContent className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-lg font-semibold text-slate-900">{household.household.name}</p>
-              <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700">
+              <p className="text-lg font-semibold text-heading">{household.household.name}</p>
+              <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-700 dark:bg-primary-950/60 dark:text-primary-300">
                 {isOwner ? "Owner" : household.me.canRecord ? "Member · can record" : "Member · read-only"}
               </span>
             </div>
-            <p className="mt-0.5 text-xs text-slate-400">
+            <p className="mt-0.5 text-xs text-faint">
               {household.members.length} {household.members.length === 1 ? "member" : "members"} ·{" "}
               {household.accounts.filter((a) => !a.archived).length} shared{" "}
               {household.accounts.filter((a) => !a.archived).length === 1 ? "account" : "accounts"}
@@ -310,7 +310,7 @@ export function HouseholdManager({
         <Card>
           <CardHeader>
             <CardDescription>Shared income this month</CardDescription>
-            <CardTitle className="text-xl font-bold tabular-nums text-emerald-600">
+            <CardTitle className="text-xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
               {formatMoney(overview?.month.incomeMinor ?? 0, displayCurrency)}
             </CardTitle>
           </CardHeader>
@@ -318,7 +318,7 @@ export function HouseholdManager({
         <Card>
           <CardHeader>
             <CardDescription>Shared spending this month</CardDescription>
-            <CardTitle className="text-xl font-bold tabular-nums text-red-600">
+            <CardTitle className="text-xl font-bold tabular-nums text-red-600 dark:text-red-400">
               {formatMoney(overview?.month.expenseMinor ?? 0, displayCurrency)}
             </CardTitle>
           </CardHeader>
@@ -327,7 +327,7 @@ export function HouseholdManager({
           <CardHeader>
             <CardDescription>Shared net this month</CardDescription>
             <CardTitle
-              className={`text-xl font-bold tabular-nums ${monthNet < 0 ? "text-red-600" : "text-emerald-600"}`}
+              className={`text-xl font-bold tabular-nums ${monthNet < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}
             >
               {formatMoney(monthNet, displayCurrency)}
             </CardTitle>
@@ -345,11 +345,11 @@ export function HouseholdManager({
           </CardHeader>
           <CardContent className="p-0">
             {household.accounts.length === 0 ? (
-              <p className="px-6 py-6 text-sm text-slate-500">
+              <p className="px-6 py-6 text-sm text-muted">
                 No shared accounts yet{isOwner ? " — create the first one below." : "."}
               </p>
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-line">
                 {household.accounts.map((a) => (
                   <li
                     key={a.id}
@@ -357,19 +357,19 @@ export function HouseholdManager({
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-medium text-slate-900">{a.name}</p>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                        <p className="truncate text-sm font-medium text-heading">{a.name}</p>
+                        <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">
                           {TYPE_LABELS[a.type] ?? a.type}
                         </span>
                         {a.archived ? (
-                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
                             Archived
                           </span>
                         ) : null}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
-                      <p className="text-sm font-semibold tabular-nums text-slate-900">
+                      <p className="text-sm font-semibold tabular-nums text-heading">
                         {formatMoney(a.balanceMinor, a.currency)}
                       </p>
                       {isOwner ? (
@@ -390,7 +390,7 @@ export function HouseholdManager({
             )}
           </CardContent>
           {isOwner ? (
-            <CardContent className="border-t border-slate-100">
+            <CardContent className="border-t border-line">
               <form onSubmit={createAccount} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <Field label="Account name" htmlFor="hh-acct-name">
                   <Input
@@ -453,21 +453,21 @@ export function HouseholdManager({
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-line">
               {household.members.map((m) => (
                 <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 px-6 py-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium text-slate-900">{m.name}</p>
+                      <p className="truncate text-sm font-medium text-heading">{m.name}</p>
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                          m.role === "OWNER" ? "bg-teal-50 text-teal-700" : "bg-slate-100 text-slate-500"
+                          m.role === "OWNER" ? "bg-primary-50 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300" : "bg-surface-2 text-muted"
                         }`}
                       >
                         {m.role === "OWNER" ? "Owner" : m.canRecord ? "Can record" : "Read-only"}
                       </span>
                     </div>
-                    <p className="mt-0.5 truncate text-xs text-slate-400">{m.email}</p>
+                    <p className="mt-0.5 truncate text-xs text-faint">{m.email}</p>
                   </div>
                   {isOwner && m.role !== "OWNER" ? (
                     <div className="flex shrink-0 items-center gap-2">
@@ -507,12 +507,12 @@ export function HouseholdManager({
             </CardHeader>
             <CardContent className="space-y-4">
               <form onSubmit={createInvite} className="flex flex-wrap items-center gap-3">
-                <label className="flex items-center gap-2 text-sm text-slate-700">
+                <label className="flex items-center gap-2 text-sm text-body">
                   <input
                     type="checkbox"
                     checked={inviteCanRecord}
                     onChange={(e) => setInviteCanRecord(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-primary-700 focus:ring-primary-700"
+                    className="h-4 w-4 rounded border-line text-primary-700 focus:ring-primary-700"
                   />
                   Allow recording into shared accounts
                 </label>
@@ -522,12 +522,12 @@ export function HouseholdManager({
               </form>
 
               {inviteLink ? (
-                <div className="space-y-2 rounded-lg border border-teal-200 bg-teal-50/60 p-3">
-                  <p className="text-xs font-medium text-teal-800">
+                <div className="space-y-2 rounded-lg border border-primary-200 bg-primary-50/60 dark:border-primary-900 dark:bg-primary-950/40 p-3">
+                  <p className="text-xs font-medium text-primary-800 dark:text-primary-200">
                     Share this link — it will not be shown again:
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    <code className="min-w-0 flex-1 truncate rounded bg-white px-2 py-1 text-xs text-slate-700">
+                    <code className="min-w-0 flex-1 truncate rounded bg-surface px-2 py-1 text-xs text-body">
                       {inviteLink}
                     </code>
                     <Button variant="outline" size="sm" onClick={copyLink}>
@@ -539,14 +539,14 @@ export function HouseholdManager({
 
               {household.invites && household.invites.length > 0 ? (
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-faint">
                     Invitation history
                   </p>
-                  <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+                  <ul className="divide-y divide-line rounded-lg border border-line">
                     {household.invites.map((i) => (
                       <li key={i.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                        <div className="min-w-0 text-xs text-slate-600">
-                          <span className="font-medium text-slate-800">
+                        <div className="min-w-0 text-xs text-body">
+                          <span className="font-medium text-heading">
                             {i.status === "PENDING" ? "Pending" : i.status === "ACCEPTED" ? "Accepted" : "Revoked"}
                           </span>{" "}
                           · {i.canRecord ? "can record" : "read-only"} · expires{" "}
@@ -579,23 +579,23 @@ export function HouseholdManager({
           </CardHeader>
           <CardContent className="p-0">
             {!overview || overview.recentActivity.length === 0 ? (
-              <p className="px-6 py-6 text-sm text-slate-500">
+              <p className="px-6 py-6 text-sm text-muted">
                 No shared activity yet. Record a transaction onto a shared account to see it here.
               </p>
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-line">
                 {overview.recentActivity.map((t) => (
                   <li key={t.id} className="flex items-center justify-between gap-3 px-6 py-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                        <p className="truncate text-sm font-medium text-slate-900">
+                        <p className="truncate text-sm font-medium text-heading">
                           {t.description || (t.kind === "TRANSFER" ? "Transfer" : "Transaction")}
                         </p>
-                        <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700">
+                        <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-700 dark:bg-primary-950/60 dark:text-primary-300">
                           {t.recordedByName}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-xs text-slate-400">
+                      <p className="mt-0.5 text-xs text-faint">
                         {t.accountName} ·{" "}
                         {new Date(t.transactionDate).toLocaleDateString(undefined, {
                           day: "numeric",
@@ -606,7 +606,7 @@ export function HouseholdManager({
                     </div>
                     <p
                       className={`shrink-0 text-sm font-semibold tabular-nums ${
-                        t.amountMinor < 0 ? "text-red-600" : "text-emerald-600"
+                        t.amountMinor < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
                       }`}
                     >
                       {t.amountMinor < 0 ? "−" : "+"}
@@ -626,13 +626,13 @@ export function HouseholdManager({
               <CardDescription>Expenses recorded onto shared accounts</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-line">
                 {overview.memberSpending.map((m) => (
                   <li key={m.userId} className="flex items-center justify-between gap-3 px-6 py-3">
-                    <p className="truncate text-sm font-medium text-slate-900">{m.name}</p>
+                    <p className="truncate text-sm font-medium text-heading">{m.name}</p>
                     <p
                       className={`text-sm font-semibold tabular-nums ${
-                        m.active ? "text-red-600" : "text-slate-400"
+                        m.active ? "text-red-600 dark:text-red-400" : "text-faint"
                       }`}
                     >
                       {formatMoney(m.spentMinor, displayCurrency)}
@@ -645,7 +645,7 @@ export function HouseholdManager({
         ) : null}
       </div>
 
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted">
         Shared accounts are visible to every member; your personal accounts stay private and never
         appear in the household view. Totals combine shared accounts in {displayCurrency}.
       </p>

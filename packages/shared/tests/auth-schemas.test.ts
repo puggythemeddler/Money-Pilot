@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AppError, ErrorCodes, isAppError } from "../src/errors";
 import {
+  changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
@@ -82,6 +83,22 @@ describe("resetPasswordSchema", () => {
   it("applies the password policy", () => {
     expect(resetPasswordSchema.safeParse({ token: "t", password: "weak" }).success).toBe(false);
     expect(resetPasswordSchema.safeParse({ token: "t", password: "BetterPass1" }).success).toBe(true);
+  });
+});
+
+describe("changePasswordSchema", () => {
+  it("applies the password policy to the new password", () => {
+    expect(changePasswordSchema.safeParse({ currentPassword: "OldPass1", password: "weak" }).success).toBe(false);
+    expect(changePasswordSchema.safeParse({ currentPassword: "OldPass1", password: "BetterPass1" }).success).toBe(true);
+  });
+
+  it("requires the current password", () => {
+    expect(changePasswordSchema.safeParse({ currentPassword: "", password: "BetterPass1" }).success).toBe(false);
+  });
+
+  it("rejects an unchanged password", () => {
+    const result = changePasswordSchema.safeParse({ currentPassword: "SamePass1", password: "SamePass1" });
+    expect(result.success).toBe(false);
   });
 });
 

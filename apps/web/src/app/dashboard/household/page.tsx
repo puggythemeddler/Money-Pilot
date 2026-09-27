@@ -24,8 +24,8 @@ export default async function HouseholdPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Household</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-2xl font-bold tracking-tight text-heading">Household</h1>
+        <p className="text-sm text-muted">
           Shared accounts for a couple or family — joint balances, who recorded what, and each
           member&apos;s spending. Personal ledgers stay private.
         </p>

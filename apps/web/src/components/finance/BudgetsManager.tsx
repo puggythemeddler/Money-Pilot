@@ -175,7 +175,7 @@ export function BudgetsManager({ budgets, categories }: { budgets: BudgetItem[];
       {editing ? (
         <Card>
           <CardContent>
-            <p className="mb-3 text-sm font-semibold text-slate-900">Edit budget · {editing.name}</p>
+            <p className="mb-3 text-sm font-semibold text-heading">Edit budget · {editing.name}</p>
             <form onSubmit={saveEdit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Name" htmlFor="bd-edit-name">
                 <Input
@@ -211,17 +211,17 @@ export function BudgetsManager({ budgets, categories }: { budgets: BudgetItem[];
       ) : null}
 
       <Card>
-        <p className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-900">
+        <p className="border-b border-line px-4 py-3 text-sm font-semibold text-heading">
           {budgets.length} {budgets.length === 1 ? "budget" : "budgets"}
         </p>
         <CardContent className="p-0">
           {budgets.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-slate-500">
+            <p className="px-4 py-6 text-sm text-muted">
               No budgets yet. Give each month a limit — per category or for everything — and your spending is
               tracked against it automatically.
             </p>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-line">
               {budgets.map((b) => {
                 const pct = progress(b);
                 const over = b.spentMinor > b.amountMinor;
@@ -229,16 +229,16 @@ export function BudgetsManager({ budgets, categories }: { budgets: BudgetItem[];
                   <li key={b.id} className="px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-900">
+                        <p className="truncate text-sm font-medium text-heading">
                           {b.name}
-                          {b.categoryName ? <span className="font-normal text-slate-400"> · {b.categoryName}</span> : null}
+                          {b.categoryName ? <span className="font-normal text-faint"> · {b.categoryName}</span> : null}
                         </p>
-                        <p className="mt-0.5 text-xs text-slate-400">Period {b.period}</p>
+                        <p className="mt-0.5 text-xs text-faint">Period {b.period}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-3">
-                        <p className="text-right text-sm font-semibold tabular-nums text-slate-900">
+                        <p className="text-right text-sm font-semibold tabular-nums text-heading">
                           {formatMoney(b.spentMinor, b.currency)}
-                          <span className="block text-xs font-normal text-slate-400">
+                          <span className="block text-xs font-normal text-faint">
                             of {formatMoney(b.amountMinor, b.currency)} · {over ? "over by " : "left "}
                             {formatMoney(over ? -b.remainingMinor : b.remainingMinor, b.currency)}
                           </span>
@@ -251,9 +251,9 @@ export function BudgetsManager({ budgets, categories }: { budgets: BudgetItem[];
                         </Button>
                       </div>
                     </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
                       <div
-                        className={`h-full rounded-full ${over ? "bg-red-500" : "bg-teal-600"}`}
+                        className={`h-full rounded-full ${over ? "bg-red-500" : "bg-primary-600"}`}
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -265,7 +265,7 @@ export function BudgetsManager({ budgets, categories }: { budgets: BudgetItem[];
         </CardContent>
       </Card>
 
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted">
         Spent is derived from your EXPENSE transactions for the period in the budget&apos;s currency — it is
         never stored, so the transaction log stays the single source of truth. A budget with no category covers
         the whole month. Archive finishes a budget; archived budgets stop appearing but keep their history.

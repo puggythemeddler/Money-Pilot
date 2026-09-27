@@ -101,6 +101,19 @@ export const verifyEmailSchema = z.object({
 
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 
+/** Change password while signed in: the current password plus a new one. */
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password.").max(72),
+    password: passwordSchema,
+  })
+  .refine((data) => data.currentPassword !== data.password, {
+    message: "The new password must be different from the current one.",
+    path: ["password"],
+  });
+
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
 export const updateProfileSchema = z.object({
   name: nameSchema.optional(),
   preferredCurrency: preferredCurrencySchema.optional(),

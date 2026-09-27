@@ -18,7 +18,7 @@ export function LogoutButton({ className }: { className?: string }) {
         window.location.assign("/login");
       }}
       disabled={busy}
-      className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:opacity-60 ${className ?? ""}`}
+      className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-body transition-colors hover:bg-surface-2 hover:text-heading disabled:opacity-60 ${className ?? ""}`}
     >
       {busy ? "Signing out…" : "Sign out"}
     </button>
