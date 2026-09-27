@@ -4,6 +4,7 @@
   "private": true,
   "description": "MoneyPilot — personal finance, expense, debt and financial planning platform.",
   "license": "UNLICENSED",
+  "author": "puggythemeddler",
   "workspaces": [
     "apps/*",
     "packages/*"

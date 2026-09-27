@@ -2,6 +2,7 @@
   "name": "@moneypilot/e2e",
   "private": true,
   "type": "module",
+  "author": "puggythemeddler",
   "scripts": {
     "e2e": "playwright test",
     "lint": "eslint .",

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "author": "puggythemeddler",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc --noEmit && esbuild src/server.ts --bundle --platform=node --format=esm --target=node20 --external:@prisma/client --external:hono --external:@hono/node-server --external:jose --external:bcryptjs --external:zod --outfile=dist/server.js --sourcemap",
