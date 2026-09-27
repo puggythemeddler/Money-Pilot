@@ -145,16 +145,22 @@ The repository ships a Render Blueprint: **`render.yaml`** at the repo root.
 - **Type**: Web Service, Node. Leave **Root Directory empty** (the repository
   root): `npm install` must run where the root `package.json` +
   `package-lock.json` live so the `@moneypilot/shared` workspace resolves.
-- **Build command**: `npm install --workspace @moneypilot/shared --workspace @moneypilot/api && cd apps/api && node scripts/check-prod-env.mjs && npx prisma generate && npx prisma migrate deploy && npm run build`
+- **Build command**: `npm install --include=dev --workspace @moneypilot/shared --workspace @moneypilot/api && cd apps/api && node scripts/check-prod-env.mjs && npx prisma generate && npx prisma migrate deploy && npm run build`
 - **Start command**: `node apps/api/scripts/check-prod-env.mjs && node apps/api/dist/server.js`
 - **Health check path**: `/api/health`
 - Same environment variables as above (`NODE_ENV=production` is Render's default).
 
 ### What each step does
 
+- `npm install --include=dev …` — installs only the `api` + `shared`
+  workspaces (skips `apps/web` and `apps/e2e`, whose Playwright install would
+  download browsers on every build). `--include=dev` is required: the
+  `NODE_ENV=production` env var makes npm omit devDependencies by default,
+  and the build needs the TypeScript toolchain (typescript, esbuild,
+  `@types/node`) and the prisma CLI. The install step's postinstall generates
+  the SQLite dev client.
 - `npx prisma generate` — builds the Prisma client from the **canonical
-  PostgreSQL schema**. (The install step's postinstall generates the SQLite
-  dev client; this build step switches to the production client.)
+  PostgreSQL schema**. This build step switches to the production client.
 - `npx prisma migrate deploy` — applies the committed PostgreSQL migrations
   to Neon. It runs in the build step because Render Free has no pre-deploy
   hook; the migrations are forward-only and safe to run on every build.

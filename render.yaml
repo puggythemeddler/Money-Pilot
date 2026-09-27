@@ -27,7 +27,10 @@ services:
     #
     # Render Free does not support pre-deploy commands, so the env check and
     # `prisma migrate deploy` run here, in the build pipeline, instead.
-    buildCommand: npm install --workspace @moneypilot/shared --workspace @moneypilot/api && cd apps/api && node scripts/check-prod-env.mjs && npx prisma generate && npx prisma migrate deploy && npm run build
+    # `--include=dev` is required because NODE_ENV=production (set below) makes
+    # npm omit devDependencies by default, and the build needs the TypeScript
+    # toolchain (typescript, esbuild, @types/node) plus the prisma CLI.
+    buildCommand: npm install --include=dev --workspace @moneypilot/shared --workspace @moneypilot/api && cd apps/api && node scripts/check-prod-env.mjs && npx prisma generate && npx prisma migrate deploy && npm run build
     # Env guard on start too: fail fast with a clear message if a required
     # production variable goes missing after the build.
     startCommand: node apps/api/scripts/check-prod-env.mjs && node apps/api/dist/server.js
