@@ -9,6 +9,7 @@
     },
     "build": {
       "dependsOn": ["^build"],
+      "env": ["APP_BASE_URL", "MONEYPILOT_API_ORIGIN"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "lint": {},
