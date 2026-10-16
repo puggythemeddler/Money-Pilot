@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { getServerCapabilities } from "@/lib/server-api";
 import { oauthErrorMessage } from "@/lib/oauth-errors";
 
 /** Friendly copy for error codes that only make sense on the login page. */
@@ -18,6 +19,7 @@ export default async function LoginPage({
 }) {
   const { error } = await searchParams;
   const message = oauthErrorMessage(error) ?? (error ? (LOGIN_ONLY_MESSAGES[error] ?? null) : null);
+  const capabilities = await getServerCapabilities();
 
   return (
     <Card>
@@ -28,7 +30,7 @@ export default async function LoginPage({
       <CardContent>
         <div className="space-y-4">
           <div className="mt-[-1px]">
-            <LoginForm initialError={message} />
+            <LoginForm initialError={message} googleSignIn={capabilities.googleSignIn} />
           </div>
           <div className="flex items-center justify-between text-sm">
             <a href="/register" className="font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300">

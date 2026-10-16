@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RegisterForm } from "@/components/auth/RegisterForm";
+import { getServerCapabilities } from "@/lib/server-api";
 import { oauthErrorMessage } from "@/lib/oauth-errors";
 
 export const metadata = {
@@ -13,6 +14,7 @@ export default async function RegisterPage({
 }) {
   const { error } = await searchParams;
   const message = oauthErrorMessage(error);
+  const capabilities = await getServerCapabilities();
 
   return (
     <Card>
@@ -24,7 +26,7 @@ export default async function RegisterPage({
       </CardHeader>
       <CardContent>
         <div className="space-y-5">
-          <RegisterForm initialError={message} />
+          <RegisterForm initialError={message} googleSignIn={capabilities.googleSignIn} />
           <p className="text-center text-sm text-muted">
             Already have an account?{" "}
             <a href="/login" className="font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300">

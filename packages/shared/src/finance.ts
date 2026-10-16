@@ -47,23 +47,24 @@ export type DebtType = (typeof DEBT_TYPE_LIST)[number];
  * can archive or rename them; the set keeps first-run entry usable.
  */
 export const DEFAULT_CATEGORIES: ReadonlyArray<{ name: string; kind: CategoryKind; color: string }> = [
-  // Expenses
+  // Expenses — Kenya-first starter set (fare, airtime/data, school fees and
+  // loans cover everyday spending here). Every entry is renameable/archivable.
   { name: "Rent", kind: "EXPENSE", color: "#0f766e" },
   { name: "Food", kind: "EXPENSE", color: "#ea580c" },
-  { name: "Transport", kind: "EXPENSE", color: "#2563eb" },
+  { name: "Fare", kind: "EXPENSE", color: "#2563eb" },
+  { name: "Airtime & data", kind: "EXPENSE", color: "#0891b2" },
   { name: "Utilities", kind: "EXPENSE", color: "#7c3aed" },
   { name: "Internet", kind: "EXPENSE", color: "#0d9488" },
-  { name: "Phone", kind: "EXPENSE", color: "#0891b2" },
   { name: "Shopping", kind: "EXPENSE", color: "#db2777" },
   { name: "Entertainment", kind: "EXPENSE", color: "#f59e0b" },
   { name: "Medical", kind: "EXPENSE", color: "#dc2626" },
-  { name: "Education", kind: "EXPENSE", color: "#4f46e5" },
-  { name: "Debt repayment", kind: "EXPENSE", color: "#b91c1c" },
+  { name: "School fees", kind: "EXPENSE", color: "#4f46e5" },
+  { name: "Loans", kind: "EXPENSE", color: "#b91c1c" },
   { name: "Other", kind: "EXPENSE", color: "#64748b" },
   // Income
   { name: "Salary", kind: "INCOME", color: "#16a34a" },
-  { name: "Freelance", kind: "INCOME", color: "#059669" },
   { name: "Business", kind: "INCOME", color: "#0d9488" },
+  { name: "Freelance", kind: "INCOME", color: "#059669" },
   { name: "Gift", kind: "INCOME", color: "#e879f9" },
   { name: "Other", kind: "INCOME", color: "#64748b" },
 ];

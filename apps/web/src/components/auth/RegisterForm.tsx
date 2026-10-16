@@ -16,7 +16,13 @@ interface RegisterResponse {
 
 const currencyOptions = Object.values(CURRENCIES);
 
-export function RegisterForm({ initialError }: { initialError: string | null }) {
+export function RegisterForm({
+  initialError,
+  googleSignIn = false,
+}: {
+  initialError: string | null;
+  googleSignIn?: boolean;
+}) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -59,8 +65,12 @@ export function RegisterForm({ initialError }: { initialError: string | null }) 
           You&apos;re signing up with an invitation. The token will be applied automatically.
         </Alert>
       ) : null}
-      <GoogleButton />
-      <OrDivider />
+      {googleSignIn ? (
+        <>
+          <GoogleButton />
+          <OrDivider />
+        </>
+      ) : null}
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <Field label="Your name" htmlFor="name">
           <Input

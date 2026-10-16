@@ -78,3 +78,23 @@ export async function getServerUser(): Promise<ServerAuthContext | null> {
     throw err;
   }
 }
+
+export interface ServerCapabilities {
+  /** Google OAuth is fully configured on the API deployment. */
+  googleSignIn: boolean;
+  /** Transactional email (verification, password reset) reaches an inbox. */
+  emailDelivery: boolean;
+}
+
+/**
+ * Reads the API's public capability flags. Failures are non-fatal: we fall
+ * back to the most conservative answer (feature unavailable) so the UI never
+ * advertises something the deployment cannot honour.
+ */
+export async function getServerCapabilities(): Promise<ServerCapabilities> {
+  try {
+    return await serverFetch<ServerCapabilities>("/api/auth/capabilities");
+  } catch {
+    return { googleSignIn: false, emailDelivery: false };
+  }
+}

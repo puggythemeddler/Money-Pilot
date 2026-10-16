@@ -13,7 +13,13 @@ interface LoginResponse {
   user: { id: string; email: string; name: string };
 }
 
-export function LoginForm({ initialError }: { initialError: string | null }) {
+export function LoginForm({
+  initialError,
+  googleSignIn = false,
+}: {
+  initialError: string | null;
+  googleSignIn?: boolean;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
@@ -44,8 +50,12 @@ export function LoginForm({ initialError }: { initialError: string | null }) {
   return (
     <div className="space-y-4">
       {error ? <Alert variant="error">{error}</Alert> : null}
-      <GoogleButton />
-      <OrDivider />
+      {googleSignIn ? (
+        <>
+          <GoogleButton />
+          <OrDivider />
+        </>
+      ) : null}
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <Field label="Email" htmlFor="email">
           <Input

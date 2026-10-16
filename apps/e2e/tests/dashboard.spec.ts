@@ -46,9 +46,10 @@ test("the dashboard aggregates balances, cash flow and recent activity", async (
   await expect(cardValue(page, "Net this month")).toHaveText(/3,500\.00/);
   await expect(page.getByText(/^earned /)).toHaveText(/5,000\.00/);
 
-  // Accounts panel with derived balance. exact: the recent-activity rows
-  // also mention the account name with a date suffix.
-  await expect(page.getByText("Main KES wallet", { exact: true })).toBeVisible();
+  // Accounts panel with derived balance. Scoped to list items (the quick-add
+  // account <select> repeats the name as an option and recent-activity rows
+  // append a date suffix).
+  await expect(page.getByRole("listitem").getByText("Main KES wallet", { exact: true })).toBeVisible();
   await expect(page.getByText(/13,500\.00/).first()).toBeVisible();
 
   // Top spending groups expenses by category (name + colored badge).
@@ -69,16 +70,42 @@ test("a dashboard with an account but no activity shows quiet empty states", asy
 
   await expect(page.getByRole("heading", { name: /Karibu, Dash/ })).toBeVisible();
   // Zero accounts → the onboarding card; with an account → quiet per-panel states.
-  await expect(page.getByText("Quiet wallet")).toBeVisible();
+  await expect(page.getByRole("listitem").getByText("Quiet wallet")).toBeVisible();
   await expect(page.getByText("No spending recorded this month yet.")).toBeVisible();
   await expect(page.getByText("No transactions yet — record the first one.")).toBeVisible();
 });
 
-test("a fresh account with no accounts sees the onboarding card", async ({ page }) => {
+test("a fresh account with no accounts sees the guided first-run", async ({ page }) => {
   await registerViaUI(page, "Dash Tester");
   await page.goto("/dashboard");
 
   await expect(page.getByRole("heading", { name: /Karibu, Dash/ })).toBeVisible();
-  await expect(page.getByText("Build your financial picture")).toBeVisible();
-  await expect(page.getByText("Add an account →")).toBeVisible();
+  await expect(page.getByText("Get started")).toBeVisible();
+  // Step 1 is actionable with Kenyan presets; step 2 stays locked.
+  await expect(page.getByText("Add an account", { exact: true })).toBeVisible();
+  await expect(page.getByText("Add an account to unlock this step.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "M-Pesa" })).toBeVisible();
+});
+
+test("a new user sets up an account and records the first transaction from the dashboard", async ({ page }) => {
+  await registerViaUI(page, "First Run");
+
+  await page.goto("/dashboard");
+  // Step 1: one-click M-Pesa preset plus an opening balance.
+  await page.getByRole("button", { name: "M-Pesa" }).click();
+  await page.fill("#getstarted-opening", "5000");
+  await page.getByRole("button", { name: "Add account" }).click();
+
+  // Step 2 unlocks and the account shows up with its balance.
+  await expect(page.getByText("Add an account to unlock this step.")).toHaveCount(0);
+  await expect(page.getByRole("listitem").getByText("M-Pesa", { exact: true })).toBeVisible();
+
+  // Record a first expense through the quick-add form.
+  await page.fill("#quick-amount", "150");
+  await page.fill("#quick-description", "Matatu fare");
+  await page.getByRole("button", { name: "Add expense" }).click();
+
+  // The dashboard reflects the new record.
+  await expect(page.getByText("Matatu fare")).toBeVisible();
+  await expect(page.getByText(/150\.00/).first()).toBeVisible();
 });

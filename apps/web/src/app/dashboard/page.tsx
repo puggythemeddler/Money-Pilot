@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatMoney } from "@moneypilot/shared";
-import { getServerUser, serverFetch } from "@/lib/server-api";
+import { getServerCapabilities, getServerUser, serverFetch } from "@/lib/server-api";
 import { ResendVerification } from "@/components/ResendVerification";
+import { GetStarted } from "@/components/onboarding/GetStarted";
+import { QuickAddTransaction } from "@/components/finance/QuickAddTransaction";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Icons } from "@/components/Logo";
@@ -37,8 +39,10 @@ export default async function DashboardPage() {
   if (!auth) redirect("/login");
 
   const summary = await serverFetch<DashboardSummary>("/api/dashboard");
+  const capabilities = await getServerCapabilities();
   const firstName = auth.user.name.split(" ")[0] ?? auth.user.name;
   const currency = auth.user.preferredCurrency;
+  const hasTransactions = summary.allTime.incomeMinor !== 0 || summary.allTime.expenseMinor !== 0;
 
   const monthNet = summary.month.netMinor;
   const monthNetClass = monthNet < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400";
@@ -51,9 +55,17 @@ export default async function DashboardPage() {
       </header>
 
       {!auth.user.emailVerified ? (
-        <Alert variant="warning" title="Verify your email to secure your account">
-          You will not be able to recover your password without a verified email. <ResendVerification />
-        </Alert>
+        capabilities.emailDelivery ? (
+          <Alert variant="warning" title="Verify your email to secure your account">
+            You will not be able to recover your password without a verified email. <ResendVerification />
+          </Alert>
+        ) : (
+          <Alert variant="warning" title="Email verification is unavailable on this server">
+            This deployment cannot send email yet, so verification and password-reset links are not
+            delivered. Your account still works — ask whoever runs this server to configure email
+            delivery.
+          </Alert>
+        )
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -122,28 +134,13 @@ export default async function DashboardPage() {
         </Card>
       ) : null}
 
-      {summary.accounts.length === 0 ? (
-        <Card>
-          <CardContent>
-            <div className="flex items-start gap-3">
-              <Icons.wallet className="mt-0.5 h-5 w-5 text-faint" />
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-heading">Build your financial picture</p>
-                <p className="text-sm leading-relaxed text-body">
-                  Add your first account, then record expenses, income and transfers. Every number on this
-                  dashboard comes straight from your data — we never show invented figures.
-                </p>
-                <Link
-                  href="/dashboard/accounts"
-                  className="mt-1 inline-block text-sm font-medium text-primary-700 hover:underline dark:text-primary-400"
-                >
-                  Add an account →
-                </Link>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
+      <GetStarted
+        accounts={summary.accounts}
+        currency={currency}
+        hasTransactions={hasTransactions}
+      />
+
+      {summary.accounts.length > 0 ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -254,7 +251,19 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-      )}
+      ) : null}
+
+      {summary.accounts.length > 0 && hasTransactions ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick add</CardTitle>
+            <CardDescription>Record an expense or income in seconds.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <QuickAddTransaction accounts={summary.accounts} currency={currency} />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <p className="text-sm text-muted">
         Heads to <Link href="/dashboard/settings" className="font-medium text-body hover:underline">Settings</Link> to

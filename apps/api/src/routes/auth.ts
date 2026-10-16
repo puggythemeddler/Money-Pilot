@@ -32,6 +32,7 @@ import { issueVerificationToken, consumeVerificationToken } from "@/lib/verifica
 import { findInvitationByToken, consumeInvitation } from "@/lib/invitations";
 import { sendVerificationEmail, sendPasswordResetEmail } from "@/lib/email";
 import { writeAudit } from "@/lib/audit";
+import { authCapabilities } from "@/lib/capabilities";
 import { authRateLimit } from "@/lib/rateLimit";
 import { fail, getClientIp, newRequestId, ok, parseJson, validate } from "@/lib/api";
 import { authJsonResponse, clearAuthCookies, isTokenMode, setAuthCookies } from "@/lib/cookies";
@@ -90,6 +91,13 @@ function toAuthUser(row: {
 }
 
 const auth = new Hono();
+
+/**
+ * Public deployment capabilities (no auth, no secrets): lets the web UI hide
+ * or annotate features this server cannot deliver, instead of bouncing users
+ * back with an error after they click.
+ */
+auth.get("/auth/capabilities", () => ok(authCapabilities()));
 
 auth.post("/auth/login", async (c) => {
   const requestId = newRequestId();

@@ -3,24 +3,33 @@ import { loginViaUI, registerViaUI } from "./helpers";
 
 /**
  * The e2e environment deliberately runs without GOOGLE_CLIENT_ID/SECRET, so
- * these tests exercise the fully unconfigured path: the start endpoint
- * redirects back with a friendly error instead of visiting Google, and the
- * callback never trusts unmatched state.
+ * these tests exercise the fully unconfigured path: the web pages hide the
+ * Google button (advertising a flow the server cannot complete is the bug this
+ * guards against), the start endpoint redirects back with a friendly error if
+ * visited directly, and the callback never trusts unmatched state.
  */
 
-test("the login page offers Continue with Google and handles it being unconfigured", async ({ page }) => {
+test("the capabilities endpoint reports what this deployment can do", async ({ page }) => {
+  const res = await page.request.get("/api/auth/capabilities");
+  expect(res.status()).toBe(200);
+  const body = await res.json();
+  // No Google credentials and no SMTP transport in the e2e environment.
+  expect(body.data).toEqual({ googleSignIn: false, emailDelivery: false });
+});
+
+test("Google sign-in is hidden on the login page when the API is unconfigured", async ({ page }) => {
   await page.goto("/login");
-  await page.getByRole("link", { name: "Continue with Google" }).click();
+  // The button is not advertised when the server cannot complete the flow.
+  await expect(page.getByRole("link", { name: "Continue with Google" })).toHaveCount(0);
+  // The start endpoint still fails closed with a clear message if visited directly.
+  await page.goto("/api/auth/google/start");
   await expect(page).toHaveURL(/\/login\?error=google_not_configured/);
   await expect(page.getByRole("alert").first()).toContainText("isn't set up");
 });
 
-test("the register page handles Continue with Google being unconfigured", async ({ page }) => {
+test("Google sign-in is hidden on the register page when the API is unconfigured", async ({ page }) => {
   await page.goto("/register");
-  await page.getByRole("link", { name: "Continue with Google" }).click();
-  // Login-mode flows land on /login with the explanation.
-  await expect(page).toHaveURL(/\/login\?error=google_not_configured/);
-  await expect(page.getByRole("alert").first()).toContainText("isn't set up");
+  await expect(page.getByRole("link", { name: "Continue with Google" })).toHaveCount(0);
 });
 
 test("linking from Settings redirects back with the error when Google is unconfigured", async ({ page }) => {
