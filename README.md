@@ -13,8 +13,11 @@ monthly core budget you choose explicitly.
 > income/expenses, transfers, budgets, debts, recurring bills, **shared households (joint
 > accounts for families/couples with per-member permissions)**, **optional Google
 > sign-in (OAuth + PKCE, linking from Settings)**, **in-session change-password with
-> other-session revocation**, and the **orange/blue light + dark redesign** are
-> implemented and end-to-end tested.
+> other-session revocation**, **a guided first-run onboarding + quick-add dashboard with
+> Kenyan starter categories (M-Pesa, fare, airtime, …)**, and the **orange/blue light +
+> dark redesign** are implemented and end-to-end tested. Optional features the
+> deployment has not configured are hidden rather than shown broken — the web app reads
+> `GET /api/auth/capabilities` (`googleSignIn`, `emailDelivery`).
 > The app is split into a standalone Hono API (`apps/api`, Render) and a frontend-only
 > web app (`apps/web`, Vercel) proxying `/api/*` same-origin. CI is fully green
 > (lint/typecheck/unit tests/build, dependency audit, Semgrep, Playwright browser e2e,
@@ -186,6 +189,7 @@ frontend-only web app has a single variable in `apps/web/.env`.
 | Variable                       | Where | Meaning                                                        | Default            |
 | ------------------------------ | ----- | -------------------------------------------------------------- | ------------------ |
 | `DATABASE_URL`                 | api   | Prisma database URL (`file:./dev.db` for SQLite)               | —                  |
+| `DIRECT_DATABASE_URL`          | api   | Non-pooled Neon URL for `prisma migrate deploy` (production only) | —               |
 | `APP_BASE_URL`                 | api   | Public web URL used to build email links and validate origins  | `http://localhost:3000` |
 | `AUTH_JWT_SECRET`              | api   | HMAC secret for access tokens (48+ random bytes recommended)   | —                  |
 | `AUTH_REFRESH_TTL_DAYS`        | api   | Refresh-token lifetime in days                                 | `30`               |
@@ -195,8 +199,8 @@ frontend-only web app has a single variable in `apps/web/.env`.
 | `RATE_LIMIT_AUTH_MAX`          | api   | Auth request cap per IP per window                             | `20`               |
 | `RATE_LIMIT_AUTH_WINDOW_SECONDS` | api | Auth rate-limit window                                         | `60`               |
 | `ALLOWED_ORIGINS`              | api   | Comma-separated extra origins accepted by the CSRF check      | —                  |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | api | OAuth credentials for "Continue with Google"; unset = disabled | — |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` | api | SMTP for email delivery; falls back to console | — |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | api | OAuth credentials for "Continue with Google"; unset = button hidden | — |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` / `SMTP_SECURE` | api | Listed for completeness — **email delivery is not implemented yet** (transport is a stub) | — |
 | `MONEYPILOT_API_ORIGIN`        | web   | API origin that `/api/*` is proxied to                         | `http://localhost:4000` |
 
 In invite-only mode (`PRIVATE_MODE=true`) no one can register without an invitation, so a
@@ -249,7 +253,8 @@ and can be re-run — subsequent runs are a no-op.
   a Google-only account whose stored password hash is unguessable (password login stays
   impossible until the user sets one via the email-verified forgot-password flow). Settings
   lists connected identities and requires the account password to disconnect. Unset
-  credentials disable the feature gracefully.
+  credentials hide the Google buttons (the web app reads
+  `GET /api/auth/capabilities` rather than showing a sign-in path that cannot work).
 - **Change password while signed in** (`/api/auth/change-password`) re-verifies the current
   password, applies the shared password policy (8–72 chars, letter + digit, must differ
   from the current one), then revokes every other session immediately — the device that
@@ -267,7 +272,7 @@ and can be re-run — subsequent runs are a no-op.
 | Semgrep | CI `semgrep` job (`semgrep/semgrep` image)        | Custom rules (`security/semgrep-rules.yml`: no raw SQL, no `dangerouslySetInnerHTML`, no `eval`, no committed secrets) plus the `auto` registry ruleset. Locally: `pip install semgrep`, then `semgrep scan --config security/semgrep-rules.yml` |
 | npm audit | CI `audit` job via `scripts/audit.mjs`         | High/critical vulnerabilities in production dependencies, with a reviewed allowlist for build-time-only tools (the Prisma CLI chain currently has no patched release) |
 | Snyk    | `.github/workflows/snyk.yml` (optional)          | Deep dependency scan — runs only when a `SNYK_TOKEN` repo secret is configured; otherwise every step skips with an explicit note |
-| Playwright | `apps/e2e` (`npm run e2e`)                    | Browser-level regression suite: auth/session protection, CSRF origin behavior, account CRUD + archive, transactions + filters + pagination, transfers, dashboard aggregation |
+| Playwright | `apps/e2e` (`npm run e2e`)                    | Browser-level regression suite: auth/session protection, CSRF origin behavior, account CRUD + archive, transactions + filters + pagination, transfers, dashboard aggregation, guided first-run onboarding + quick add, unconfigured-capabilities behaviour |
 
 ## Data privacy
 
@@ -352,8 +357,9 @@ test registers its own isolated user.
 
 Each phase is finished only when the following all pass:
 
-- [x] Unit tests (`packages/shared`) — 84 tests, exact money parsing, per-currency minor units,
-      FX rate conversion, currency registry & schemas (finance + household schemas)
+- [x] Unit tests (`packages/shared`) — 90 tests, exact money parsing, per-currency minor units,
+      FX rate conversion, currency registry & schemas (finance + household + admin schemas),
+      Kenyan-first default categories
       — TypeScript (`npm run typecheck`)
 - [x] ESLint (`npm run lint`)
 - [x] Production build (`npm run build`)
@@ -363,10 +369,12 @@ Each phase is finished only when the following all pass:
 - [x] CI (GitHub Actions: lint, typecheck, unit tests, production build, dependency audit
       with reviewed allowlist, Semgrep custom + registry rules, Playwright e2e — see
       `.github/workflows/ci.yml`; optional Snyk workflow runs only with a `SNYK_TOKEN`)
-- [x] Playwright browser e2e (Chromium, 23 tests) — register/login/logout, invalid and
+- [x] Playwright browser e2e (Chromium, 33 tests) — register/login/logout, invalid and
       tampered sessions, protected-route redirects, account create/archive/rename,
       transactions + kind/search filters + API pagination, cross-currency amounts,
-      transfers (both legs), dashboard aggregation and empty states, and households
+      transfers (both legs), dashboard aggregation and empty states, guided first-run
+      onboarding + first transaction via quick add, unconfigured-capabilities behaviour
+      (Google button hidden, `GET /api/auth/capabilities`), and households
       (owner creates household + joint account + invite link, member joins via link,
       records with attribution, read-only members blocked, personal-account privacy,
       permission flips/removal, last-member-leave archives). Caught a real
@@ -411,7 +419,10 @@ third-party payment processing, social networking, and an unsolicited advisory e
 
 ## Known limitations
 
-- Email is printed to the server console when no SMTP is configured.
+- **Email delivery is not implemented yet** — the SMTP transport is a stub, so password-reset
+  and verification emails are never sent (development logs them to the server console instead).
+  Deployments advertise this honestly via `GET /api/auth/capabilities`
+  (`emailDelivery: false`) and the dashboard shows a matching notice.
 - Local development runs on the generated SQLite twin; production is PostgreSQL
   (Neon). The twin is generated from the canonical schema (`db:schema:sqlite`),
   so both model the exact same data.

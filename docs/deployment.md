@@ -114,7 +114,10 @@ The repository ships a Render Blueprint: **`render.yaml`** at the repo root.
 
    Optional: `ALLOWED_ORIGINS` (extra accepted origins, comma separated),
    `PRIVATE_MODE=true` (invite-only registration), `AUTH_REFRESH_TTL_DAYS`,
-   and the `SMTP_*` variables once a mailer provider is configured.
+   and the `SMTP_*` variables. **Email delivery is not implemented yet** —
+   the SMTP transport is a stub, so verification / password-reset emails are
+   not sent; leave `SMTP_*` unset. Deployments report this through
+   `GET /api/auth/capabilities` (`emailDelivery: false`).
 
    **"Continue with Google" (optional)** — set `GOOGLE_CLIENT_ID` and
    `GOOGLE_CLIENT_SECRET` on the API service to enable Google sign-in:
@@ -129,8 +132,10 @@ The repository ships a Render Blueprint: **`render.yaml`** at the repo root.
    3. Copy the client ID and secret into the two `GOOGLE_*` variables on
       Render.
 
-   Without them the Google endpoints redirect back with a clear "not
-   configured" error and everything else works unchanged.
+   Without them the login and register pages simply omit the
+   "Continue with Google" button (the web app reads
+   `GET /api/auth/capabilities`), the Google endpoints redirect back with a
+   clear "not configured" error, and everything else works unchanged.
 
 4. Deploy. **Render Free does not support pre-deploy commands**, so the
    build pipeline runs the checks instead: it validates the environment

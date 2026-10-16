@@ -18,6 +18,9 @@ Every endpoint lives under `/api` and speaks the shared JSON envelope
 (`{ data }` on success, `{ error: { code, message, requestId } }` on failure):
 
 - `GET  /api/health` — liveness probe.
+- `GET  /api/auth/capabilities` — public; reports which optional features this
+  deployment has configured (`googleSignIn`, `emailDelivery`) so the web app
+  can hide what it cannot offer.
 - `POST /api/auth/register|login|refresh|logout|logout-all`
 - `GET|PATCH /api/auth/me`, `POST /api/auth/forgot-password|reset-password|
   verify-email|resend-verification`, `POST /api/auth/change-password`
@@ -74,9 +77,13 @@ web app in `apps/web` proxies its `/api/*` requests to this server — see
 Render runs `node dist/server.js` behind TLS with `PORT` injected; see
 `render.yaml` at the repository root and the full split-deployment guide in
 [docs/deployment.md](../../docs/deployment.md). Required env:
-`DATABASE_URL` (Neon), `AUTH_JWT_SECRET`, `APP_BASE_URL` (the **web app's**
-https URL — Vercel). Optional: `ALLOWED_ORIGINS` (extra accepted origins,
-comma separated), `PRIVATE_MODE`, `AUTH_REFRESH_TTL_DAYS`,
-`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` ("Continue with Google"; the
-authorized redirect URI is `<APP_BASE_URL>/api/auth/google/callback`),
-`SMTP_*`.
+`DATABASE_URL` (Neon pooled endpoint), `DIRECT_DATABASE_URL` (Neon direct
+endpoint, used by `prisma migrate deploy`), `AUTH_JWT_SECRET` (≥ 32 chars),
+`APP_BASE_URL` (the **web app's** https URL — Vercel). Optional:
+`ALLOWED_ORIGINS` (extra accepted origins, comma separated), `PRIVATE_MODE`,
+`AUTH_REFRESH_TTL_DAYS`, `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` ("Continue
+with Google"; the authorized redirect URI is
+`<APP_BASE_URL>/api/auth/google/callback`). `SMTP_*` is listed for
+completeness but **email delivery is not implemented yet** — the transport is
+a stub, so `/api/auth/capabilities` reports `emailDelivery: false` and
+verification/reset emails are not sent.

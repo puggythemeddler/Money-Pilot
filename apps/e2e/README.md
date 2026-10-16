@@ -1,11 +1,12 @@
 # @moneypilot/e2e
 
-Playwright browser e2e suite for the Money Pilot app (Chromium, 31
+Playwright browser e2e suite for the Money Pilot app (Chromium, 33
 tests): the critical user paths — auth and session protection, password
 change with other-session revocation, the light/dark theme toggle,
-Google sign-in's unconfigured path, accounts, transactions, transfers,
-dashboard aggregation, and households — run against the real production
-topology (web app + standalone API behind the `/api/*` proxy).
+Google sign-in's unconfigured path (button hidden, capabilities endpoint),
+guided first-run onboarding + quick entry, accounts, transactions,
+transfers, dashboard aggregation, and households — run against the real
+production topology (web app + standalone API behind the `/api/*` proxy).
 
 ## Run
 
@@ -44,8 +45,9 @@ npx playwright install chromium
 - The server is **self-contained: no `.env` is needed** (verified on CI by
   running the suite with no `.env` present at all). `GOOGLE_CLIENT_ID` /
   `GOOGLE_CLIENT_SECRET` are deliberately never set, so `google-auth.spec.ts`
-  exercises the fully unconfigured path (friendly redirects back, forged
-  callbacks refused).
+  exercises the fully unconfigured path (the "Continue with Google" button is
+  hidden, `/api/auth/capabilities` reports `googleSignIn: false`, and forged
+  callbacks are refused).
 - Every test registers its own user (`uniqueEmail`), so tests share nothing
   and each one is a fully isolated scenario.
 - One worker, serial (`workers: 1`): the SQLite-backed server and browser
@@ -60,11 +62,11 @@ npx playwright install chromium
 | Spec                 | Covers                                                              |
 | -------------------- | -------------------------------------------------------------------- |
 | `auth.spec.ts`       | register/login/logout, invalid + weak passwords, protected-route redirects, tampered session cookie, 401 after logout, re-login, password change (old password dies, new one works), theme toggle + persistence |
-| `google-auth.spec.ts` | unconfigured "Continue with Google" redirects (login, register, Settings), forged callback refused, identities endpoint, unlinking a non-connected provider |
+| `google-auth.spec.ts` | unconfigured `GET /api/auth/capabilities` (`googleSignIn: false`), "Continue with Google" hidden on login/register, Settings link redirects back with the error, forged callback refused, identities endpoint, unlinking a non-connected provider |
 | `accounts.spec.ts`   | create/archive/unarchive, multi-currency accounts, rename           |
 | `transactions.spec.ts` | income + expense entry, kind + search filters, USD formatting, API pagination |
 | `transfers.spec.ts`  | same-currency transfer with balance checks, both legs in history    |
-| `dashboard.spec.ts`  | aggregate values, empty states (with and without accounts)           |
+| `dashboard.spec.ts`  | guided first-run (preset accounts) + first transaction via quick add, aggregate values, empty states (with and without accounts) |
 | `household.spec.ts`  | owner creates household + joint account + invite link, member joins via the link; member records onto a shared account with attribution + balance aggregation; read-only member blocked from writes but sees entries; personal-account privacy between members (404s, no transfer-row leak); owner flips permissions, removes members, and last-member-leave archives the household |
 
 The suite has already caught a real production bug pre-deploy: the CSRF

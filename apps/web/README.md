@@ -41,11 +41,15 @@ src/
     server-api.ts          serverFetch: server components call the API with
                            the incoming request's cookies (401 → /login at
                            the call sites); ServerApiError keeps the shared
-                           error contract (code, status, requestId)
+                           error contract (code, status, requestId);
+                           getServerCapabilities() reads which optional
+                           features the API has configured (auth pages hide
+                           "Continue with Google" when it is off)
     device-key.ts          per-device client key material (device names)
     cn.ts                  className helper
-  components/              UI (finance managers, household manager + invite
-                           accept, auth forms, nav, primitives)
+  components/              UI (finance managers incl. quick add, household
+                           manager + invite accept, guided first-run
+                           onboarding, auth forms, nav, primitives)
   middleware.ts            CSRF origin check + security headers (defense in
                            depth: the API re-checks Origin itself)
 next.config.ts             /api/* → MONEYPILOT_API_ORIGIN proxy rewrites

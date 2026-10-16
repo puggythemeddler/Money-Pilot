@@ -14,11 +14,18 @@ here is picked up by both apps on the next dev/build without a publish step.
     (deterministic rounding, exponent support)
   - `formatMoney` — minor units back to a display string
   - `minorToNumber` and signed-amount helpers used at the service boundary
+  - `RateFraction` + `parseRateFraction` + `convertMinorUnitsWithRate` —
+    exact cross-currency conversion (deterministic integer rate-fraction
+    math, no floats)
 - `currency.ts` — the ISO 4217 registry: every African currency plus
   USD/GBP/EUR, with exact minor-digit rules (0 for UGX/TZS/XOF/XAF/BIF/DJF/
   GNF/KMF/RWF, 3 for TND/LYD, 2 for the rest). KES is the default.
-- `finance.ts` — exact FX conversion for cross-currency transfers
-  (deterministic integer rate-fraction math, no floats)
+- `finance.ts` — the financial domain constants: account types, transaction
+  kinds, category kinds and debt types as string constants (portable across
+  SQLite/PostgreSQL), plus `DEFAULT_CATEGORIES` — the Kenya-first starter
+  set (Rent, Food, Fare, Airtime & data, … for expenses; Salary, Business,
+  Freelance, … for income) created for every new account, and
+  `COLOR_PRESETS`.
 - `schemas/` — the Zod request schemas every API route validates against
 - `errors.ts` — the shared error-code contract for consistent API errors
 - `types.ts` — the `AuthUser` / `PublicUser` shape shared by the API (issuer)
@@ -32,7 +39,7 @@ semantics (signed ledger amounts, derived balances, atomic transfers).
 
 | Script                     | What it does                                        |
 | -------------------------- | ---------------------------------------------------- |
-| `npm run test`             | vitest — 84 tests: exact parsing, per-currency minor digits, FX conversion, registry, schemas |
+| `npm run test`             | vitest — 90 tests: exact parsing, per-currency minor digits, FX conversion, registry, schemas, default categories |
 | `npm run lint` / `typecheck` | ESLint / `tsc --noEmit`                            |
 
 From the repo root: `npm run test -- --filter=@moneypilot/shared`
