@@ -367,7 +367,8 @@ Each phase is finished only when the following all pass:
 - [x] ESLint (`npm run lint`)
 - [x] Production build (`npm run build`)
 - [x] API/DB consistency (PostgreSQL migrations: canonical schema with committed,
-      forward-only migrations applied via `prisma migrate deploy`; SQLite twin
+      forward-only migrations applied via `prisma migrate deploy`; migration SQL is
+      validated as plain UTF-8 (no BOM/UTF-16) in CI and before deploy; SQLite twin
       for local dev/e2e is generated from it, so they can never drift)
 - [x] CI (GitHub Actions: lint, typecheck, unit tests, production build, dependency audit
       with reviewed allowlist, Semgrep custom + registry rules, Playwright e2e — see

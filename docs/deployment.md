@@ -73,6 +73,22 @@ Neon provides two endpoints; the API uses both:
   Local development and e2e tests use the generated SQLite twin
   (`apps/api/prisma/schema.sqlite.prisma`) via `db push` — no migration
   history is needed locally.
+- **Migration files must be plain UTF-8 without a BOM.** Prisma hands the raw
+  file bytes to node-postgres, so a UTF-16 file (embedded NULs) or a UTF-8 BOM
+  (`U+FEFF` at position 1) aborts `prisma migrate deploy` with `P3018` and
+  leaves the migration marked failed in `_prisma_migrations`. Windows editors
+  are the usual culprit. Both the CI quality job (`npm run check:migrations`)
+  and the Render build run before `migrate deploy` guard against this.
+- **Recovering a failed migration** (e.g. the build aborted on `P3018`): fix
+  the migration file, mark it rolled back against production so it can be
+  re-applied, then redeploy:
+  1. `npx prisma migrate resolve --rolled-back "20260928000000_add_recurring_income"`
+     with `DIRECT_DATABASE_URL` pointing at the production database (or run the
+     equivalent in Neon's SQL editor:
+     `DELETE FROM _prisma_migrations WHERE migration_name = '20260928000000_add_recurring_income' AND finished_at IS NULL;`
+     — safe only because the migration never applied any statements).
+  2. Push the fixed migration and let Render's build re-run `migrate deploy`,
+     or trigger a manual deploy.
 
 ## 2. Deploy order (the URLs depend on each other)
 

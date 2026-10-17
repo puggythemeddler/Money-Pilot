@@ -20,6 +20,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Guard against Windows writing artifacts (UTF-16, or a UTF-8 BOM) in
+      # migration SQL: node-postgres rejects them and `prisma migrate deploy`
+      # aborts on deploy, leaving the migration failed in _prisma_migrations.
+      - name: Migration files are plain UTF-8
+        run: npm run check:migrations
+
       # postinstall generates the SQLite dev client; the production build
       # regenerates the canonical PostgreSQL client (no database needed).
       - name: Lint

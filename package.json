@@ -16,6 +16,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "check:migrations": "node scripts/check-migrations.mjs",
     "e2e": "npm run e2e --workspace @moneypilot/e2e"
   },
   "engines": {

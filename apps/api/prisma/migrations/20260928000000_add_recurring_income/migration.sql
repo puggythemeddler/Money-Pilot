@@ -1,4 +1,4 @@
-﻿-- CreateTable
+-- CreateTable
 CREATE TABLE "recurring_income" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
