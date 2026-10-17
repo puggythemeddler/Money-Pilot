@@ -38,7 +38,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL") // pooled endpoint (runtime)
 }
 
 /// A registered account. `status` is app-level (ACTIVE | DISABLED) instead of
@@ -72,6 +72,8 @@ model User {
   debts                Debt[]
   bills                Bill[]
   billPayments         BillPayment[]
+  recurringIncomes     RecurringIncome[]
+  incomeReceipts       IncomeReceipt[]
   householdMembership  HouseholdMember?
   identities           UserIdentity[]
 
@@ -330,6 +332,7 @@ model Category {
   budgets      Budget[]
   debts        Debt[]
   bills        Bill[]
+  recurringIncomes RecurringIncome[]
 
   @@unique([userId, name, kind])
   @@index([userId, archivedAt])
@@ -363,6 +366,7 @@ model Transaction {
   category Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   transfer Transfer?     @relation(fields: [transferId], references: [id], onDelete: SetNull)
   billPayment BillPayment?
+  incomeReceipt IncomeReceipt?
 
   @@index([userId, transactionDate])
   @@index([accountId])
@@ -504,4 +508,55 @@ model BillPayment {
   @@index([userId, paidFor])
   @@index([billId])
   @@map("bill_payments")
+}
+
+/// A recurring monthly income source (salary, stipend, rent received).
+/// `payDay` is the day of the month it is expected (1-31). "Record income"
+/// creates a real INCOME transaction on the chosen account and logs an
+/// IncomeReceipt so the month is not double-counted — the same pattern bills
+/// use for expenses.
+model RecurringIncome {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  payee       String? // who pays it (employer, tenant, client) — recorded as the merchant
+  amountMinor BigInt
+  currency    String    @default("KES")
+  payDay      Int // 1-31
+  categoryId  String? // INCOME category applied to the recorded transaction
+  notes       String?
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  receipts IncomeReceipt[]
+
+  @@index([userId])
+  @@index([categoryId])
+  @@map("recurring_income")
+}
+
+/// One recorded month of a recurring income. The linked Transaction is the
+/// real INCOME entry created on the account; this row records which income and
+/// period it settled, so a month cannot be recorded twice for the same income.
+model IncomeReceipt {
+  id            String   @id @default(cuid())
+  incomeId      String
+  userId        String
+  transactionId String   @unique
+  paidFor       String // "YYYY-MM"
+  amountMinor   BigInt
+  currency      String
+  createdAt     DateTime @default(now())
+
+  income      RecurringIncome @relation(fields: [incomeId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transaction Transaction     @relation(fields: [transactionId], references: [id])
+
+  @@unique([incomeId, paidFor])
+  @@index([userId, paidFor])
+  @@index([incomeId])
+  @@map("income_receipts")
 }

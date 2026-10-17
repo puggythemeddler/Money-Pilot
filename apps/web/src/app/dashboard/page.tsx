@@ -15,6 +15,21 @@ interface DashboardSummary {
   allTime: { incomeMinor: number; expenseMinor: number };
   household: { name: string } | null;
   accounts: { id: string; name: string; currency: string; balanceMinor: number }[];
+  debt: {
+    count: number;
+    currency: string;
+    totalMinor: number;
+    others: { currency: string; totalMinor: number }[];
+    items: { id: string; name: string; institution: string | null; currency: string; balanceMinor: number }[];
+  };
+  income: {
+    currency: string;
+    expectedMinor: number;
+    receivedMinor: number;
+    activeCount: number;
+    receivedCount: number;
+    others: { currency: string; expectedMinor: number; receivedMinor: number }[];
+  };
   categorySpending: {
     categoryId: string | null;
     categoryName: string;
@@ -24,6 +39,7 @@ interface DashboardSummary {
   recentTransactions: {
     id: string;
     description: string | null;
+    merchant: string | null;
     kind: string;
     categoryName: string | null;
     categoryColor: string | null;
@@ -108,6 +124,84 @@ export default async function DashboardPage() {
           </CardHeader>
         </Card>
       </div>
+
+      <Card>
+        <CardContent>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted">Total debt</p>
+              <p className="text-2xl font-bold tabular-nums text-heading">
+                {formatMoney(summary.debt.totalMinor, summary.debt.currency)}
+              </p>
+              <p className="text-xs text-faint">
+                {summary.debt.count === 0 ? (
+                  "Nothing owed — no active debts tracked."
+                ) : (
+                  <>
+                    {summary.debt.count} {summary.debt.count === 1 ? "debt" : "debts"} outstanding
+                    {summary.debt.others.length > 0
+                      ? ` · plus ${summary.debt.others.map((o) => formatMoney(o.totalMinor, o.currency)).join(", ")}`
+                      : ""}
+                  </>
+                )}
+              </p>
+            </div>
+            <Link
+              href="/dashboard/debts"
+              className="text-sm font-medium text-primary-700 hover:underline dark:text-primary-400"
+            >
+              {summary.debt.count === 0 ? "Track a debt →" : "Manage →"}
+            </Link>
+          </div>
+          {summary.debt.items.length > 0 ? (
+            <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-3">
+              {summary.debt.items.slice(0, 6).map((d) => (
+                <li key={d.id} className="text-xs text-faint">
+                  {d.name}
+                  {d.institution ? ` · ${d.institution}` : ""}{" "}
+                  <span className="font-semibold tabular-nums text-body">
+                    {formatMoney(d.balanceMinor, d.currency)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted">Income this period</p>
+              <p className="text-2xl font-bold tabular-nums text-heading">
+                {formatMoney(summary.income.receivedMinor, summary.income.currency)}
+              </p>
+              <p className="text-xs text-faint">
+                {summary.income.activeCount === 0 ? (
+                  "No recurring income tracked yet."
+                ) : (
+                  <>
+                    received of {formatMoney(summary.income.expectedMinor, summary.income.currency)} expected ·{" "}
+                    {summary.income.receivedCount} of {summary.income.activeCount} recorded
+                    {summary.income.others.length > 0
+                      ? ` · plus ${summary.income.others
+                          .map((o) => formatMoney(o.receivedMinor, o.currency))
+                          .join(", ")}`
+                      : ""}
+                  </>
+                )}
+              </p>
+            </div>
+            <Link
+              href="/dashboard/income"
+              className="text-sm font-medium text-primary-700 hover:underline dark:text-primary-400"
+            >
+              {summary.income.activeCount === 0 ? "Add income →" : "Manage →"}
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
 
       {summary.household ? (
         <Card>
@@ -228,6 +322,7 @@ export default async function DashboardPage() {
                           ) : null}
                         </div>
                         <p className="mt-0.5 text-xs text-faint">
+                          {t.merchant ? `${t.merchant} · ` : ""}
                           {t.accountName} ·{" "}
                           {new Date(t.transactionDate).toLocaleDateString(undefined, {
                             day: "numeric",

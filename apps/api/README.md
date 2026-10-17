@@ -37,6 +37,8 @@ Every endpoint lives under `/api` and speaks the shared JSON envelope
 - `GET|POST /api/budgets`, `PATCH /api/budgets/:id`
 - `GET|POST /api/debts`, `PATCH /api/debts/:id`
 - `GET|POST /api/bills`, `PATCH|POST /api/bills/:id` (POST pays the bill)
+- `GET|POST /api/recurring-income`, `PATCH|POST /api/recurring-income/:id`
+  (POST records a month's income as a real deposit)
 - `GET /api/dashboard`
 - `GET|POST|PATCH|DELETE /api/household`, `GET /api/household/overview`,
   `POST /api/household/accounts`, `PATCH /api/household/accounts/:id`,

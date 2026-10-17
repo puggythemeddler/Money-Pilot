@@ -10,7 +10,8 @@ monthly core budget you choose explicitly.
 
 > Status: **All planned phases complete.** Authentication, invite-only mode, admin
 > foundation, data export / account deletion, accounts, categories, transactions,
-> income/expenses, transfers, budgets, debts, recurring bills, **shared households (joint
+> income/expenses, transfers, budgets, debts, recurring bills, recurring income,
+> **shared households (joint
 > accounts for families/couples with per-member permissions)**, **optional Google
 > sign-in (OAuth + PKCE, linking from Settings)**, **in-session change-password with
 > other-session revocation**, **a guided first-run onboarding + quick-add dashboard with
@@ -112,7 +113,7 @@ apps/api           Standalone MoneyPilot backend (Hono) — see apps/api/README.
   src/lib/finance/households.ts  Household/membership resolver — the single choke point
                       for account visibility across all finance services
   src/routes/…        Route handlers: auth, accounts, categories, transactions, transfers,
-                      budgets, debts, bills, dashboard, household, admin, users
+                      budgets, debts, bills, recurring income, dashboard, household, admin, users
 apps/web           Next.js application (UI only) — see apps/web/README.md
   src/lib/server-api.ts      Server components fetch the API, forwarding auth cookies
   next.config.ts     /api/* proxied, same-origin, to the MoneyPilot API service
@@ -304,6 +305,8 @@ string and are always validated with the shared Zod schemas.
 | `/api/debts/:id`               | `PATCH`            | Update/archive                            |
 | `/api/bills`                   | `GET`, `POST`      | List, create recurring bill              |
 | `/api/bills/:id`               | `PATCH`, `POST`    | Update/archive, record a payment           |
+| `/api/recurring-income`        | `GET`, `POST`      | List, create recurring income (e.g. salary) |
+| `/api/recurring-income/:id`    | `PATCH`, `POST`    | Update/archive, record a month's income    |
 | `/api/dashboard`               | `GET`              | Overview summary for the dashboard        |
 | `/api/household`               | `GET`, `POST`, `PATCH`, `DELETE` | Household view, create, rename (owner), leave |
 | `/api/household/overview`      | `GET`              | Aggregated shared finances (month totals, per-member spending, recent activity) |
@@ -357,24 +360,27 @@ test registers its own isolated user.
 
 Each phase is finished only when the following all pass:
 
-- [x] Unit tests (`packages/shared`) — 90 tests, exact money parsing, per-currency minor units,
-      FX rate conversion, currency registry & schemas (finance + household + admin schemas),
-      Kenyan-first default categories
+- [x] Unit tests (`packages/shared`) — 100 tests, exact money parsing, per-currency minor units,
+      FX rate conversion, currency registry & schemas (finance + household + admin +
+      recurring-income schemas), Kenyan-first default categories
       — TypeScript (`npm run typecheck`)
 - [x] ESLint (`npm run lint`)
 - [x] Production build (`npm run build`)
-- [x] API/DB consistency (PostgreSQL migrations: canonical schema with a single
-      `postgres_baseline` migration applied via `prisma migrate deploy`; SQLite twin
+- [x] API/DB consistency (PostgreSQL migrations: canonical schema with committed,
+      forward-only migrations applied via `prisma migrate deploy`; SQLite twin
       for local dev/e2e is generated from it, so they can never drift)
 - [x] CI (GitHub Actions: lint, typecheck, unit tests, production build, dependency audit
       with reviewed allowlist, Semgrep custom + registry rules, Playwright e2e — see
       `.github/workflows/ci.yml`; optional Snyk workflow runs only with a `SNYK_TOKEN`)
-- [x] Playwright browser e2e (Chromium, 33 tests) — register/login/logout, invalid and
+- [x] Playwright browser e2e (Chromium, 39 tests) — register/login/logout, invalid and
       tampered sessions, protected-route redirects, account create/archive/rename,
       transactions + kind/search filters + API pagination, cross-currency amounts,
       transfers (both legs), dashboard aggregation and empty states, guided first-run
       onboarding + first transaction via quick add, unconfigured-capabilities behaviour
-      (Google button hidden, `GET /api/auth/capabilities`), and households
+      (Google button hidden, `GET /api/auth/capabilities`), debts (pay to the named
+      creditor with a real expense, cross-currency rejection, overview total-debt card),
+      recurring income (record a month as a real deposit, reject a double record and a
+      wrong-currency account, expected-vs-received card), and households
       (owner creates household + joint account + invite link, member joins via link,
       records with attribution, read-only members blocked, personal-account privacy,
       permission flips/removal, last-member-leave archives). Caught a real
@@ -397,10 +403,11 @@ Each phase is finished only when the following all pass:
 1. **Foundation** *(done)* — repo, architecture, database, auth, user model, design system,
    env config, private mode, admin, data privacy, docs.
 2. **Financial engine** *(done)* — accounts, transactions, categories, income, expenses,
-   transfers (exact-rate cross-currency FX included), monthly budgets, debt tracking, and
-   recurring bills — modeling, services, API, UI, tests all complete. Currency-universal:
+   transfers (exact-rate cross-currency FX included), monthly budgets, debt tracking,
+   recurring bills, and recurring income (e.g. salary — record a month as a real deposit)
+   — modeling, services, API, UI, tests all complete. Currency-universal:
    every African ISO 4217 currency works end-to-end (per-currency parsing, formatting,
-   budgets, debts, bills, cross-currency transfers).
+   budgets, debts, bills, income, cross-currency transfers).
 3. **Shared households** *(done)* — every user has a fully isolated personal ledger (cross-user
    access is tested to return 404) plus opt-in sharing: households with joint accounts a family
    or couple can both see and record into (per-member record permissions, single-use invite

@@ -39,7 +39,7 @@ semantics (signed ledger amounts, derived balances, atomic transfers).
 
 | Script                     | What it does                                        |
 | -------------------------- | ---------------------------------------------------- |
-| `npm run test`             | vitest — 90 tests: exact parsing, per-currency minor digits, FX conversion, registry, schemas, default categories |
+| `npm run test`             | vitest — 100 tests: exact parsing, per-currency minor digits, FX conversion, registry, schemas (finance, household, admin, recurring income), default categories |
 | `npm run lint` / `typecheck` | ESLint / `tsc --noEmit`                            |
 
 From the repo root: `npm run test -- --filter=@moneypilot/shared`

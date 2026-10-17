@@ -14,6 +14,9 @@ import {
   debtQuerySchema,
   debtUpdateSchema,
   minorToNumber,
+  incomeRecordSchema,
+  recurringIncomeCreateSchema,
+  recurringIncomeUpdateSchema,
   transactionCreateSchema,
   transactionQuerySchema,
   transactionUpdateSchema,
@@ -31,6 +34,12 @@ import { createCategory, listCategories, updateCategory } from "@/lib/finance/ca
 import { createBudget, listBudgets, updateBudget } from "@/lib/finance/budgets";
 import { createDebt, listDebts, updateDebt } from "@/lib/finance/debts";
 import { createBill, listBills, payBill, updateBill } from "@/lib/finance/bills";
+import {
+  createRecurringIncome,
+  listRecurringIncomes,
+  recordIncome,
+  updateRecurringIncome,
+} from "@/lib/finance/recurringIncome";
 import { dashboardSummary } from "@/lib/finance/dashboard";
 
 /**
@@ -110,6 +119,30 @@ function serializeBill(bill: {
     categoryId: bill.categoryId,
     notes: bill.notes,
     archived: bill.archivedAt !== null,
+  };
+}
+
+function serializeRecurringIncome(income: {
+  id: string;
+  name: string;
+  payee: string | null;
+  amountMinor: bigint;
+  currency: string;
+  payDay: number;
+  categoryId: string | null;
+  notes: string | null;
+  archivedAt: Date | null;
+}) {
+  return {
+    id: income.id,
+    name: income.name,
+    payee: income.payee,
+    amountMinor: minorToNumber(income.amountMinor),
+    currency: income.currency,
+    payDay: income.payDay,
+    categoryId: income.categoryId,
+    notes: income.notes,
+    archived: income.archivedAt !== null,
   };
 }
 
@@ -605,6 +638,73 @@ finance.post("/bills/:id", async (c) => {
   }
 });
 
+// --- recurring income ------------------------------------------------------
+
+finance.get("/recurring-income", async (c) => {
+  const requestId = newRequestId();
+  const req = c.req.raw;
+  try {
+    const context = await requireUser(req);
+    const url = new URL(req.url);
+    const includeArchived = url.searchParams.get("includeArchived") === "true";
+    const incomes = await listRecurringIncomes(context.user.id, includeArchived);
+    return ok({ incomes });
+  } catch (err) {
+    return fail(err, requestId);
+  }
+});
+
+finance.post("/recurring-income", async (c) => {
+  const requestId = newRequestId();
+  const req = c.req.raw;
+  try {
+    const context = await requireUser(req);
+    const ip = getClientIp(req);
+    const ua = req.headers.get("user-agent") ?? undefined;
+    const raw = await parseJson(req);
+    const input = validate(recurringIncomeCreateSchema, raw);
+    const income = await createRecurringIncome(context.user.id, input, { ip, userAgent: ua });
+    return ok({ income: serializeRecurringIncome(income) }, { status: 201 });
+  } catch (err) {
+    return fail(err, requestId);
+  }
+});
+
+finance.patch("/recurring-income/:id", async (c) => {
+  const requestId = newRequestId();
+  const req = c.req.raw;
+  try {
+    const context = await requireUser(req);
+    const ip = getClientIp(req);
+    const ua = req.headers.get("user-agent") ?? undefined;
+    const id = c.req.param("id");
+    const raw = await parseJson(req);
+    const input = validate(recurringIncomeUpdateSchema, raw);
+    const income = await updateRecurringIncome(context.user.id, id, input, { ip, userAgent: ua });
+    return ok({ income: serializeRecurringIncome(income) });
+  } catch (err) {
+    return fail(err, requestId);
+  }
+});
+
+/** POST /recurring-income/:id records a month of this income as a real INCOME transaction. */
+finance.post("/recurring-income/:id", async (c) => {
+  const requestId = newRequestId();
+  const req = c.req.raw;
+  try {
+    const context = await requireUser(req);
+    const ip = getClientIp(req);
+    const ua = req.headers.get("user-agent") ?? undefined;
+    const id = c.req.param("id");
+    const raw = await parseJson(req);
+    const input = validate(incomeRecordSchema, raw);
+    const result = await recordIncome(context.user.id, id, input, { ip, userAgent: ua });
+    return ok(result, { status: 201 });
+  } catch (err) {
+    return fail(err, requestId);
+  }
+});
+
 // --- dashboard ------------------------------------------------------------
 
 finance.get("/dashboard", async (c) => {
@@ -612,7 +712,7 @@ finance.get("/dashboard", async (c) => {
   const req = c.req.raw;
   try {
     const context = await requireUser(req);
-    const summary = await dashboardSummary(context.user.id);
+    const summary = await dashboardSummary(context.user.id, context.user.preferredCurrency);
     return ok(summary);
   } catch (err) {
     return fail(err, requestId);

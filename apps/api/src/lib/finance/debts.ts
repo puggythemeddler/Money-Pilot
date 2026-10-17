@@ -85,6 +85,47 @@ export async function listDebts(userId: string, includeArchived = false) {
   });
 }
 
+export interface DebtOverviewItem {
+  id: string;
+  name: string;
+  institution: string | null;
+  currency: string;
+  balanceMinor: number;
+}
+
+export interface DebtOverview {
+  count: number;
+  currency: string;
+  totalMinor: number;
+  others: { currency: string; totalMinor: number }[];
+  items: DebtOverviewItem[];
+}
+
+/**
+ * Aggregated outstanding debt for the dashboard: the total in the user's
+ * preferred currency plus any other-currency totals listed separately, so the
+ * headline is never a dishonest cross-currency sum. Each balance is clamped at
+ * zero — an overpaid debt owes nothing. Built on listDebts so the
+ * principal−paid rule lives in exactly one place.
+ */
+export async function debtOverview(userId: string, preferredCurrency: string): Promise<DebtOverview> {
+  const debts = await listDebts(userId);
+  const byCurrency = new Map<string, number>();
+  const items: DebtOverviewItem[] = debts.map((d) => {
+    const balanceMinor = Math.max(0, d.balanceMinor);
+    byCurrency.set(d.currency, (byCurrency.get(d.currency) ?? 0) + balanceMinor);
+    return { id: d.id, name: d.name, institution: d.institution, currency: d.currency, balanceMinor };
+  });
+
+  const totalMinor = byCurrency.get(preferredCurrency) ?? 0;
+  const others = [...byCurrency.entries()]
+    .filter(([currency]) => currency !== preferredCurrency)
+    .map(([currency, otherTotal]) => ({ currency, totalMinor: otherTotal }))
+    .sort((a, b) => b.totalMinor - a.totalMinor);
+
+  return { count: items.length, currency: preferredCurrency, totalMinor, others, items };
+}
+
 async function validateCategory(userId: string, categoryId: string) {
   const category = await getOwnedCategory(userId, categoryId);
   if (category.archivedAt !== null) {

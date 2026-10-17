@@ -9,7 +9,7 @@ import { Field } from "@/components/ui/field";
 import { Input, Select } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { ApiClientError, apiFetch } from "@/lib/api-client";
-import type { CategoryOption } from "./TransactionsManager";
+import type { AccountOption, CategoryOption } from "./TransactionsManager";
 
 export interface DebtItem {
   id: string;
@@ -36,7 +36,21 @@ const typeLabels: Record<string, string> = {
   OTHER: "Other",
 };
 
-export function DebtsManager({ debts, categories }: { debts: DebtItem[]; categories: CategoryOption[] }) {
+function todayISO(): string {
+  const d = new Date();
+  const offset = d.getTimezoneOffset();
+  return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10);
+}
+
+export function DebtsManager({
+  debts,
+  categories,
+  accounts,
+}: {
+  debts: DebtItem[];
+  categories: CategoryOption[];
+  accounts: AccountOption[];
+}) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [type, setType] = useState("LOAN");
@@ -52,6 +66,11 @@ export function DebtsManager({ debts, categories }: { debts: DebtItem[]; categor
   const [busy, setBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editing, setEditing] = useState<DebtItem | null>(null);
+  const [payTarget, setPayTarget] = useState<DebtItem | null>(null);
+  const [payAccountId, setPayAccountId] = useState("");
+  const [payAmount, setPayAmount] = useState("");
+  const [payCategoryId, setPayCategoryId] = useState("");
+  const [payDate, setPayDate] = useState("");
 
   const expenseCategories = categories.filter((c) => c.kind === "EXPENSE");
 
@@ -113,6 +132,69 @@ export function DebtsManager({ debts, categories }: { debts: DebtItem[]; categor
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not update the debt.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openPay(d: DebtItem) {
+    setError(null);
+    setPayTarget(d);
+    setPayAccountId(accounts.find((a) => a.currency === d.currency)?.id ?? accounts[0]?.id ?? "");
+    const suggested = d.balanceMinor > 0 ? d.balanceMinor : d.minimumPaymentMinor ?? 0;
+    setPayAmount(suggested > 0 ? String(fromMinorUnits(suggested, d.currency)) : "");
+    setPayCategoryId(d.categoryId ?? "");
+    setPayDate(todayISO());
+  }
+
+  async function payDebt(e: React.FormEvent) {
+    e.preventDefault();
+    if (!payTarget) return;
+    setError(null);
+    const account = accounts.find((a) => a.id === payAccountId);
+    if (!account) {
+      setError("Choose the account the payment comes from.");
+      return;
+    }
+    if (account.currency !== payTarget.currency) {
+      setError(
+        `This debt is in ${payTarget.currency} but ${account.name} is in ${account.currency}. Pick an account in ${payTarget.currency}.`,
+      );
+      return;
+    }
+    if (!payCategoryId) {
+      setError("Choose a payments category so this expense counts against the debt.");
+      return;
+    }
+    setBusy(true);
+    const payee = payTarget.institution?.trim() || payTarget.name;
+    try {
+      if (payCategoryId !== payTarget.categoryId) {
+        await apiFetch(`/api/debts/${payTarget.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ categoryId: payCategoryId }),
+        });
+      }
+      await apiFetch("/api/transactions", {
+        method: "POST",
+        body: JSON.stringify({
+          kind: "EXPENSE",
+          accountId: payAccountId,
+          amount: payAmount.trim(),
+          transactionDate: payDate || todayISO(),
+          categoryId: payCategoryId,
+          merchant: payee,
+          description: `Payment to ${payee}`,
+        }),
+      });
+      setPayTarget(null);
+      setPayAccountId("");
+      setPayAmount("");
+      setPayCategoryId("");
+      setPayDate("");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Could not record the payment.");
     } finally {
       setBusy(false);
     }
@@ -274,6 +356,69 @@ export function DebtsManager({ debts, categories }: { debts: DebtItem[]; categor
         </Card>
       ) : null}
 
+      {payTarget ? (
+        <Card>
+          <CardContent>
+            <p className="text-sm font-semibold text-heading">Pay {payTarget.name}</p>
+            <p className="mb-3 mt-0.5 text-xs text-faint">
+              Payment goes to{" "}
+              <span className="font-semibold text-body">
+                {payTarget.institution?.trim() || payTarget.name}
+              </span>{" "}
+              · remaining {formatMoney(Math.max(0, payTarget.balanceMinor), payTarget.currency)}
+            </p>
+            <form onSubmit={payDebt} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="Amount" htmlFor="dt-pay-amount">
+                <Input
+                  id="dt-pay-amount"
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  inputMode="decimal"
+                  required
+                />
+              </Field>
+              <Field label="Pay from account" htmlFor="dt-pay-account">
+                <Select id="dt-pay-account" value={payAccountId} onChange={(e) => setPayAccountId(e.target.value)} required>
+                  <option value="" disabled>
+                    Select account
+                  </option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name} ({a.currency})
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Payments category" htmlFor="dt-pay-category">
+                <Select id="dt-pay-category" value={payCategoryId} onChange={(e) => setPayCategoryId(e.target.value)}>
+                  <option value="">Choose a category…</option>
+                  {expenseCategories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Date" htmlFor="dt-pay-date">
+                <Input id="dt-pay-date" type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+              </Field>
+              <div className="flex items-end gap-2">
+                <Button type="submit" loading={busy}>
+                  Record payment
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => setPayTarget(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+            <p className="mt-2 text-xs text-faint">
+              This records a real expense named “Payment to {payTarget.institution?.trim() || payTarget.name}” on the
+              account you choose; it counts against this debt as soon as it is saved.
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <p className="border-b border-line px-4 py-3 text-sm font-semibold text-heading">
           {debts.length} {debts.length === 1 ? "debt" : "debts"}
@@ -312,6 +457,11 @@ export function DebtsManager({ debts, categories }: { debts: DebtItem[]; categor
                             paid {formatMoney(d.paidMinor, d.currency)} of {formatMoney(d.principalMinor, d.currency)}
                           </span>
                         </p>
+                        {d.balanceMinor > 0 ? (
+                          <Button variant="outline" size="sm" onClick={() => openPay(d)}>
+                            Pay
+                          </Button>
+                        ) : null}
                         <Button variant="ghost" size="sm" onClick={() => setEditing(d)}>
                           Edit
                         </Button>
@@ -332,9 +482,9 @@ export function DebtsManager({ debts, categories }: { debts: DebtItem[]; categor
       </Card>
 
       <p className="text-sm text-muted">
-        Debts are tracked, not traded: your remaining balance is principal minus what you&apos;ve paid. Link a
-        payments category and every expense on it counts as a payment automatically; record those expenses from
-        the Transactions page.
+        Debts are tracked, not traded: your remaining balance is principal minus what you&apos;ve paid. Use{" "}
+        <span className="font-medium text-body">Pay</span> to record a payment — it creates a real expense named after
+        the creditor on the account you choose, and every expense in the linked payments category counts too.
       </p>
     </div>
   );

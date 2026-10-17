@@ -1,12 +1,14 @@
 # @moneypilot/e2e
 
-Playwright browser e2e suite for the Money Pilot app (Chromium, 33
+Playwright browser e2e suite for the Money Pilot app (Chromium, 39
 tests): the critical user paths — auth and session protection, password
 change with other-session revocation, the light/dark theme toggle,
 Google sign-in's unconfigured path (button hidden, capabilities endpoint),
 guided first-run onboarding + quick entry, accounts, transactions,
-transfers, dashboard aggregation, and households — run against the real
-production topology (web app + standalone API behind the `/api/*` proxy).
+transfers, dashboard aggregation, debts (payments + overview card),
+recurring income (salary recording + overview card), and households — run
+against the real production topology (web app + standalone API behind the
+`/api/*` proxy).
 
 ## Run
 
@@ -67,6 +69,8 @@ npx playwright install chromium
 | `transactions.spec.ts` | income + expense entry, kind + search filters, USD formatting, API pagination |
 | `transfers.spec.ts`  | same-currency transfer with balance checks, both legs in history    |
 | `dashboard.spec.ts`  | guided first-run (preset accounts) + first transaction via quick add, aggregate values, empty states (with and without accounts) |
+| `debt.spec.ts`       | paying a debt records a real expense whose merchant is the creditor, balance update, cross-currency rejection, overview total-debt card |
+| `income.spec.ts`     | recording a recurring income month creates a real deposit, double-record returns 409, wrong-currency rejection, overview expected-vs-received card |
 | `household.spec.ts`  | owner creates household + joint account + invite link, member joins via the link; member records onto a shared account with attribution + balance aggregation; read-only member blocked from writes but sees entries; personal-account privacy between members (404s, no transfer-row leak); owner flips permissions, removes members, and last-member-leave archives the household |
 
 The suite has already caught a real production bug pre-deploy: the CSRF

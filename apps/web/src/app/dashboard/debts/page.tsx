@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerUser, serverFetch } from "@/lib/server-api";
+import type { AccountRow } from "@/components/finance/AccountsManager";
 import type { CategoryRow } from "@/components/finance/CategoriesManager";
 import { DebtsManager, type DebtItem } from "@/components/finance/DebtsManager";
 
@@ -13,9 +14,10 @@ export default async function DebtsPage() {
   const auth = await getServerUser();
   if (!auth) redirect("/login");
 
-  const [debts, categories] = await Promise.all([
+  const [debts, categories, accounts] = await Promise.all([
     serverFetch<{ debts: DebtItem[] }>("/api/debts"),
     serverFetch<{ categories: CategoryRow[] }>("/api/categories"),
+    serverFetch<{ accounts: AccountRow[] }>("/api/accounts"),
   ]);
 
   return (
@@ -27,6 +29,9 @@ export default async function DebtsPage() {
       <DebtsManager
         debts={debts.debts}
         categories={categories.categories.map((c) => ({ id: c.id, name: c.name, color: c.color, kind: c.kind }))}
+        accounts={accounts.accounts
+          .filter((a) => !a.shared)
+          .map((a) => ({ id: a.id, name: a.name, currency: a.currency }))}
       />
     </div>
   );

@@ -304,6 +304,48 @@ export const billPaySchema = z.object({
 
 export type BillPayInput = z.infer<typeof billPaySchema>;
 
+/**
+ * A recurring monthly income source (salary, stipend, rent received). `payDay`
+ * is the day of the month it is expected (1-31); `payee` names who pays it and
+ * is recorded as the transaction merchant when a month is recorded.
+ */
+export const recurringIncomeCreateSchema = z.object({
+  name: z.string().trim().min(1, "Name is required.").max(60),
+  payee: z.string().trim().max(120).optional(),
+  amount: moneyInputSchema,
+  currency: preferredCurrencySchema.default("KES"),
+  payDay: z.coerce.number().int().min(1).max(31),
+  categoryId: cuiOptional("Category"),
+  notes: z.string().trim().max(500).optional(),
+});
+
+export type RecurringIncomeCreateInput = z.infer<typeof recurringIncomeCreateSchema>;
+
+export const recurringIncomeUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(60).optional(),
+  payee: z.string().trim().max(120).optional(),
+  amount: moneyInputSchema.optional(),
+  payDay: z.coerce.number().int().min(1).max(31).optional(),
+  categoryId: cuiOptional("Category"),
+  notes: z.string().trim().max(500).optional(),
+  archived: z.boolean().optional(),
+});
+
+export type RecurringIncomeUpdateInput = z.infer<typeof recurringIncomeUpdateSchema>;
+
+/**
+ * Recording a month's income creates a real INCOME transaction on an account
+ * (optionally on a specific day; today when omitted). The amount, currency and
+ * payee are taken from the recurring income, so a month cannot be recorded
+ * twice and the money genuinely lands in the account.
+ */
+export const incomeRecordSchema = z.object({
+  accountId: cuid("Account"),
+  transactionDate: dateSchema.optional(),
+});
+
+export type IncomeRecordInput = z.infer<typeof incomeRecordSchema>;
+
 /** Query filters shared by transaction listing endpoints. */
 export const transactionQuerySchema = z.object({
   kind: z.enum(TRANSACTION_KIND_LIST).optional(),

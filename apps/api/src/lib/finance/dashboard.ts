@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import { minorToNumber } from "@moneypilot/shared";
 import { listAccounts } from "./accounts";
 import { totalsByRange } from "./balances";
+import { debtOverview } from "./debts";
+import { incomeOverview } from "./recurringIncome";
 import { getMembership } from "./households";
 import { isoDate, toUtcMidnight } from "./dates";
 
@@ -18,10 +20,12 @@ export interface CategorySpending {
  * personal-account activity is aggregated here; a small household card
  * points members at the household view for shared finances.
  */
-export async function dashboardSummary(userId: string) {
-  const [allAccounts, membership] = await Promise.all([
+export async function dashboardSummary(userId: string, preferredCurrency: string) {
+  const [allAccounts, membership, debt, income] = await Promise.all([
     listAccounts(userId),
     getMembership(userId),
+    debtOverview(userId, preferredCurrency),
+    incomeOverview(userId, preferredCurrency),
   ]);
   const accounts = allAccounts.filter((a) => !a.shared);
   const availableMinor = accounts.reduce((sum, a) => sum + a.balanceMinor, 0);
@@ -96,6 +100,8 @@ export async function dashboardSummary(userId: string) {
       balanceMinor: a.balanceMinor,
       archived: a.archived,
     })),
+    debt,
+    income,
     categorySpending,
     recentTransactions: recent.map((t) => ({
       id: t.id,
