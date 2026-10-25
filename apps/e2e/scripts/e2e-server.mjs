@@ -7,7 +7,7 @@
 // proxy — http://localhost:3105/api/health — which proves the whole chain.
 import { spawn, execSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { rm, mkdir } from "node:fs/promises";
+import { rm, mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,9 +25,16 @@ const apiBase = `http://localhost:${apiPort}`;
 const dbUrl = process.env.E2E_DB_URL || "file:./e2e-playwright.db";
 const dbFile = path.join(api, "prisma", dbUrl.replace("file:", ""));
 
+const dbRoot = path.resolve(api, "prisma");
+if (!dbUrl.startsWith("file:") || !path.resolve(dbFile).startsWith(dbRoot + path.sep)) {
+  throw new Error("E2E_DB_URL must name a disposable SQLite file inside apps/api/prisma.");
+}
+
 await rm(dbFile, { force: true }).catch(() => {});
 await rm(`${dbFile}-journal`, { force: true }).catch(() => {});
 await mkdir(path.dirname(dbFile), { recursive: true }).catch(() => {});
+// Prisma's Windows schema engine needs the SQLite file to exist on some volumes.
+await writeFile(dbFile, "", { flag: "wx" });
 
 const npx = process.platform === "win32" ? "npx.cmd" : "npx";
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";

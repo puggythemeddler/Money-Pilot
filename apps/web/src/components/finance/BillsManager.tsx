@@ -41,6 +41,8 @@ export function BillsManager({
   const [dueDay, setDueDay] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [notes, setNotes] = useState("");
+  const [showCreate, setShowCreate] = useState(bills.length === 0);
+  const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -53,6 +55,7 @@ export function BillsManager({
   async function create(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setBusy(true);
     const body: Record<string, string> = {
       name: name.trim(),
@@ -69,6 +72,7 @@ export function BillsManager({
       setNotes("");
       setCategoryId("");
       setDueDay("");
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not create the bill.");
@@ -81,6 +85,7 @@ export function BillsManager({
     e.preventDefault();
     if (!editing) return;
     setError(null);
+    setSuccess(null);
     setBusy(true);
     const payload: Record<string, string> = {
       amount: String(fromMinorUnits(editing.amountMinor, editing.currency)),
@@ -92,6 +97,7 @@ export function BillsManager({
     try {
       await apiFetch(`/api/bills/${editing.id}`, { method: "PATCH", body: JSON.stringify(payload) });
       setEditing(null);
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not update the bill.");
@@ -104,6 +110,7 @@ export function BillsManager({
     e.preventDefault();
     if (!payTarget) return;
     setError(null);
+    setSuccess(null);
     setBusy(true);
     try {
       await apiFetch(`/api/bills/${payTarget.id}`, {
@@ -112,6 +119,7 @@ export function BillsManager({
       });
       setPayTarget(null);
       setPayAccountId("");
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not record the payment.");
@@ -122,9 +130,11 @@ export function BillsManager({
 
   async function archive(id: string) {
     setError(null);
+    setSuccess(null);
     setBusyId(id);
     try {
       await apiFetch(`/api/bills/${id}`, { method: "PATCH", body: JSON.stringify({ archived: true }) });
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not archive the bill.");
@@ -135,9 +145,13 @@ export function BillsManager({
 
   return (
     <div className="space-y-6">
+      {error ? <Alert variant="error">{error}</Alert> : null}
+      {success ? <Alert variant="success">{success}</Alert> : null}
+      <details open={showCreate} onToggle={(e) => setShowCreate(e.currentTarget.open)} className="rounded-xl border border-line bg-surface">
+        <summary className="cursor-pointer rounded-xl px-5 py-3 text-sm font-semibold text-primary-700 dark:text-primary-300">Add bill</summary>
       <Card>
         <CardContent>
-          <form onSubmit={create} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <form onSubmit={create} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Name" htmlFor="bl-name">
               <Input id="bl-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Rent" required />
             </Field>
@@ -175,13 +189,9 @@ export function BillsManager({
               <Input id="bl-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
             </Field>
           </form>
-          {error ? (
-            <div className="mt-4">
-              <Alert variant="error">{error}</Alert>
-            </div>
-          ) : null}
         </CardContent>
       </Card>
+      </details>
 
       {payTarget ? (
         <Card>

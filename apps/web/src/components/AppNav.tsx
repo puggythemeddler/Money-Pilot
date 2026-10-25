@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useRef } from "react";
 import { MoneyPilotLogo, Icons } from "@/components/Logo";
 import { LogoutButton } from "@/components/LogoutButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -21,7 +22,7 @@ const realNav = [
   { href: "/dashboard/settings", label: "Settings", icon: Icons.settings },
 ];
 
-const mobileNav = ["/dashboard", "/dashboard/accounts", "/dashboard/transactions", "/dashboard/transfers", "/dashboard/budgets"];
+const mobileNav = ["/dashboard", "/dashboard/accounts", "/dashboard/transactions", "/dashboard/debts"];
 
 const comingSoon = ["Calendar", "Reports", "Imports"];
 
@@ -99,10 +100,22 @@ export function Sidebar({ user }: { user: AuthUser }) {
 
 export function BottomNav() {
   const pathname = usePathname();
+  const more = useRef<HTMLDialogElement>(null);
   const items = realNav.filter((item) => mobileNav.includes(item.href));
   return (
+    <>
+    <dialog ref={more} aria-labelledby="mobile-menu-title" className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-2xl border border-line bg-surface p-5 text-heading shadow-xl backdrop:bg-black/50">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 id="mobile-menu-title" className="text-lg font-semibold">All pages</h2>
+        <button type="button" onClick={() => more.current?.close()} className="rounded-lg px-3 py-2 text-sm">Close</button>
+      </div>
+      <nav aria-label="All mobile pages" className="grid grid-cols-2 gap-2">
+        {realNav.map((item) => <Link key={item.href} href={item.href} onClick={() => more.current?.close()} aria-current={pathname === item.href ? "page" : undefined} className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-surface-2"><item.icon className="h-5 w-5 shrink-0" />{item.label}</Link>)}
+      </nav>
+      <div className="mt-4 flex items-center justify-between border-t border-line pt-4"><ThemeToggle /><LogoutButton /></div>
+    </dialog>
     <nav
-      className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-around border-t border-line bg-surface/95 px-2 py-2 backdrop-blur lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-line bg-surface/95 px-1 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
       aria-label="Mobile navigation"
     >
       {items.map((item) => {
@@ -112,17 +125,19 @@ export function BottomNav() {
             key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}
-            className={`flex flex-col items-center gap-1 rounded-lg px-4 py-1.5 text-xs font-medium ${
+            className={`flex min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[11px] font-medium ${
               active
                 ? "text-primary-700 dark:text-primary-300"
                 : "text-body hover:text-heading"
             }`}
           >
             <item.icon className="h-6 w-6" />
-            {item.label}
+            {item.label === "Transactions" ? "Activity" : item.label}
           </Link>
         );
       })}
+      <button type="button" aria-haspopup="dialog" onClick={() => more.current?.showModal()} className="flex min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[11px] font-medium text-body"><Icons.settings className="h-6 w-6" />More</button>
     </nav>
+    </>
   );
 }

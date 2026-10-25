@@ -12,7 +12,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    "bg-primary-600 text-white shadow-sm hover:bg-primary-700 focus-visible:outline-primary-700 disabled:bg-primary-300",
+    "bg-primary-700 text-white shadow-sm hover:bg-primary-800 focus-visible:outline-primary-700 disabled:bg-primary-300",
   secondary:
     "bg-heading text-page shadow-sm hover:opacity-90 disabled:opacity-50",
   ghost: "text-body hover:bg-surface-2 hover:text-heading",

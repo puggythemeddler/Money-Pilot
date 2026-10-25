@@ -62,6 +62,8 @@ export function DebtsManager({
   const [dueDay, setDueDay] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [notes, setNotes] = useState("");
+  const [showCreate, setShowCreate] = useState(debts.length === 0);
+  const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -77,6 +79,7 @@ export function DebtsManager({
   async function create(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setBusy(true);
     const body: Record<string, string> = {
       name: name.trim(),
@@ -100,6 +103,7 @@ export function DebtsManager({
       setDueDay("");
       setCategoryId("");
       setNotes("");
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not create the debt.");
@@ -112,6 +116,7 @@ export function DebtsManager({
     e.preventDefault();
     if (!editing) return;
     setError(null);
+    setSuccess(null);
     setBusy(true);
     const payload: Record<string, string> = {
       principal: String(fromMinorUnits(editing.principalMinor, editing.currency)),
@@ -129,6 +134,7 @@ export function DebtsManager({
     try {
       await apiFetch(`/api/debts/${editing.id}`, { method: "PATCH", body: JSON.stringify(payload) });
       setEditing(null);
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not update the debt.");
@@ -139,6 +145,7 @@ export function DebtsManager({
 
   function openPay(d: DebtItem) {
     setError(null);
+    setSuccess(null);
     setPayTarget(d);
     setPayAccountId(accounts.find((a) => a.currency === d.currency)?.id ?? accounts[0]?.id ?? "");
     const suggested = d.balanceMinor > 0 ? d.balanceMinor : d.minimumPaymentMinor ?? 0;
@@ -151,6 +158,7 @@ export function DebtsManager({
     e.preventDefault();
     if (!payTarget) return;
     setError(null);
+    setSuccess(null);
     const account = accounts.find((a) => a.id === payAccountId);
     if (!account) {
       setError("Choose the account the payment comes from.");
@@ -162,27 +170,18 @@ export function DebtsManager({
       );
       return;
     }
-    if (!payCategoryId) {
-      setError("Choose a payments category so this expense counts against the debt.");
-      return;
-    }
     setBusy(true);
     const payee = payTarget.institution?.trim() || payTarget.name;
     try {
-      if (payCategoryId !== payTarget.categoryId) {
-        await apiFetch(`/api/debts/${payTarget.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ categoryId: payCategoryId }),
-        });
-      }
       await apiFetch("/api/transactions", {
         method: "POST",
         body: JSON.stringify({
           kind: "EXPENSE",
+          debtId: payTarget.id,
           accountId: payAccountId,
           amount: payAmount.trim(),
           transactionDate: payDate || todayISO(),
-          categoryId: payCategoryId,
+          ...(payCategoryId ? { categoryId: payCategoryId } : {}),
           merchant: payee,
           description: `Payment to ${payee}`,
         }),
@@ -192,6 +191,7 @@ export function DebtsManager({
       setPayAmount("");
       setPayCategoryId("");
       setPayDate("");
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not record the payment.");
@@ -202,9 +202,11 @@ export function DebtsManager({
 
   async function archive(id: string) {
     setError(null);
+    setSuccess(null);
     setBusyId(id);
     try {
       await apiFetch(`/api/debts/${id}`, { method: "PATCH", body: JSON.stringify({ archived: true }) });
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not archive the debt.");
@@ -215,9 +217,17 @@ export function DebtsManager({
 
   return (
     <div className="space-y-6">
+      {error ? <Alert variant="error">{error}</Alert> : null}
+      {success ? <Alert variant="success">{success}</Alert> : null}
+      <Alert title="Payments are linked to individual debts">
+        Older expenses tagged with a debt category are unallocated until you choose their creditor.
+        Open Transactions, edit the repayment, and choose Payment for debt. Your account balances are unchanged.
+      </Alert>
+      <details open={showCreate} onToggle={(e) => setShowCreate(e.currentTarget.open)} className="rounded-xl border border-line bg-surface">
+        <summary className="cursor-pointer rounded-xl px-5 py-3 text-sm font-semibold text-primary-700 dark:text-primary-300">Add debt</summary>
       <Card>
         <CardContent>
-          <form onSubmit={create} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <form onSubmit={create} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Name" htmlFor="dt-name">
               <Input id="dt-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. HELB loan" required />
             </Field>
@@ -273,13 +283,9 @@ export function DebtsManager({
               </Button>
             </div>
           </form>
-          {error ? (
-            <div className="mt-4">
-              <Alert variant="error">{error}</Alert>
-            </div>
-          ) : null}
         </CardContent>
       </Card>
+      </details>
 
       {editing ? (
         <Card>
@@ -391,7 +397,7 @@ export function DebtsManager({
               </Field>
               <Field label="Payments category" htmlFor="dt-pay-category">
                 <Select id="dt-pay-category" value={payCategoryId} onChange={(e) => setPayCategoryId(e.target.value)}>
-                  <option value="">Choose a category…</option>
+                  <option value="">No category (optional)</option>
                   {expenseCategories.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -426,7 +432,7 @@ export function DebtsManager({
         <CardContent className="p-0">
           {debts.length === 0 ? (
             <p className="px-4 py-6 text-sm text-muted">
-              No debts tracked yet. Add what you owe to see your remaining balance — payments are counted from
+              No debts tracked yet. Add what you owe to see your remaining balance — payments are linked to each debt, not inferred from
               your expenses automatically.
             </p>
           ) : (
@@ -447,7 +453,7 @@ export function DebtsManager({
                         <p className="mt-0.5 text-xs text-faint">
                           {d.interestRate ? <span>{d.interestRate}% annual · </span> : null}
                           {d.dueDay ? <span>due day {d.dueDay} · </span> : null}
-                          {d.categoryName ? <span>payments via “{d.categoryName}”</span> : <span>no payments category</span>}
+                          {d.categoryName ? <span>category: {d.categoryName}</span> : <span>no payments category</span>}
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-3">
@@ -484,7 +490,7 @@ export function DebtsManager({
       <p className="text-sm text-muted">
         Debts are tracked, not traded: your remaining balance is principal minus what you&apos;ve paid. Use{" "}
         <span className="font-medium text-body">Pay</span> to record a payment — it creates a real expense named after
-        the creditor on the account you choose, and every expense in the linked payments category counts too.
+        the creditor on the account you choose, and counts only against that debt. Older category-only expenses can be assigned from Transactions.
       </p>
     </div>
   );

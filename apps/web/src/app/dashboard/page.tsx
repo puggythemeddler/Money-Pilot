@@ -17,6 +17,7 @@ interface DashboardSummary {
   accounts: { id: string; name: string; currency: string; balanceMinor: number }[];
   debt: {
     count: number;
+    unallocatedCount: number;
     currency: string;
     totalMinor: number;
     others: { currency: string; totalMinor: number }[];
@@ -69,6 +70,12 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-bold tracking-tight text-heading">Karibu, {firstName}</h1>
         <p className="text-sm text-muted">Your balances, cash flow and spending at a glance.</p>
       </header>
+      {summary.debt.unallocatedCount > 0 ? (
+        <Alert variant="warning" title="Review older debt repayments">
+          {summary.debt.unallocatedCount} repayment {summary.debt.unallocatedCount === 1 ? "entry needs" : "entries need"} a creditor before reducing your debt total.
+          {" "}<Link href="/dashboard/transactions" className="font-semibold underline">Assign from Transactions →</Link>
+        </Alert>
+      ) : null}
 
       {!auth.user.emailVerified ? (
         capabilities.emailDelivery ? (
@@ -76,28 +83,47 @@ export default async function DashboardPage() {
             You will not be able to recover your password without a verified email. <ResendVerification />
           </Alert>
         ) : (
-          <Alert variant="warning" title="Email verification is unavailable on this server">
-            This deployment cannot send email yet, so verification and password-reset links are not
-            delivered. Your account still works — ask whoever runs this server to configure email
-            delivery.
+          <Alert variant="warning">
+            <details>
+              <summary className="cursor-pointer font-semibold">Email recovery is unavailable — details</summary>
+              <p className="mt-2">Verification and password-reset emails cannot be sent yet. Keep your password safe; your account still works.</p>
+            </details>
           </Alert>
         )
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <GetStarted
+        accounts={summary.accounts}
+        currency={currency}
+        hasTransactions={hasTransactions}
+      />
+
+      {summary.accounts.length > 0 && hasTransactions ? (
         <Card>
           <CardHeader>
+            <CardTitle>Quick add</CardTitle>
+            <CardDescription>Record an expense or income in seconds.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <QuickAddTransaction accounts={summary.accounts} currency={currency} />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="p-4 sm:p-6">
             <CardDescription>Money in accounts</CardDescription>
-            <CardTitle className="text-2xl font-bold tabular-nums text-heading">
+            <CardTitle className="text-base break-words sm:text-2xl font-bold tabular-nums text-heading">
               {formatMoney(summary.availableMinor, currency)}
             </CardTitle>
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader>
+          <CardHeader className="p-4 sm:p-6">
             <CardDescription>Spent this month</CardDescription>
-            <CardTitle className="text-2xl font-bold tabular-nums text-red-600 dark:text-red-400">
-              {formatMoney(-summary.month.expenseMinor, currency)}
+            <CardTitle className="text-base break-words sm:text-2xl font-bold tabular-nums text-red-600 dark:text-red-400">
+              {formatMoney(summary.month.expenseMinor === 0 ? 0 : -summary.month.expenseMinor, currency)}
             </CardTitle>
             <CardDescription className="tabular-nums">
               earned {formatMoney(summary.month.incomeMinor, currency)}
@@ -105,17 +131,17 @@ export default async function DashboardPage() {
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader>
+          <CardHeader className="p-4 sm:p-6">
             <CardDescription>Net this month</CardDescription>
-            <CardTitle className={`text-2xl font-bold tabular-nums ${monthNetClass}`}>
+            <CardTitle className={`text-base break-words sm:text-2xl font-bold tabular-nums ${monthNetClass}`}>
               {formatMoney(monthNet, currency)}
             </CardTitle>
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader>
-            <CardDescription>All-time totals</CardDescription>
-            <CardTitle className="text-2xl font-bold tabular-nums text-heading">
+          <CardHeader className="p-4 sm:p-6">
+            <CardDescription>All-time net cash flow</CardDescription>
+            <CardTitle className="text-base break-words sm:text-2xl font-bold tabular-nums text-heading">
               {formatMoney(summary.allTime.incomeMinor - summary.allTime.expenseMinor, currency)}
             </CardTitle>
             <CardDescription className="tabular-nums">
@@ -228,19 +254,13 @@ export default async function DashboardPage() {
         </Card>
       ) : null}
 
-      <GetStarted
-        accounts={summary.accounts}
-        currency={currency}
-        hasTransactions={hasTransactions}
-      />
-
       {summary.accounts.length > 0 ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader className="flex-row items-center justify-between space-y-0">
               <div>
                 <CardTitle>Accounts</CardTitle>
-                <CardDescription>{summary.accounts.length} accounts tracked</CardDescription>
+                <CardDescription>{summary.accounts.length} {summary.accounts.length === 1 ? "account" : "accounts"} tracked</CardDescription>
               </div>
               <Link href="/dashboard/accounts" className="text-sm font-medium text-primary-700 hover:underline dark:text-primary-400">
                 Manage →
@@ -348,20 +368,8 @@ export default async function DashboardPage() {
         </div>
       ) : null}
 
-      {summary.accounts.length > 0 && hasTransactions ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick add</CardTitle>
-            <CardDescription>Record an expense or income in seconds.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <QuickAddTransaction accounts={summary.accounts} currency={currency} />
-          </CardContent>
-        </Card>
-      ) : null}
-
       <p className="text-sm text-muted">
-        Heads to <Link href="/dashboard/settings" className="font-medium text-body hover:underline">Settings</Link> to
+        Head to <Link href="/dashboard/settings" className="font-medium text-body hover:underline">Settings</Link> to
         update your profile, currency or timezone.
       </p>
     </div>

@@ -58,8 +58,7 @@ export async function totalsByRange(
       userId,
       account: { householdId: null },
       deletedAt: null,
-      ...(from ? { transactionDate: { gte: from } } : {}),
-      ...(to ? { transactionDate: { lt: to } } : {}),
+      ...((from || to) ? { transactionDate: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } } : {}),
     },
     _sum: { amountMinor: true },
   });

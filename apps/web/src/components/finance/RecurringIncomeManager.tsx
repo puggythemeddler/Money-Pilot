@@ -43,6 +43,8 @@ export function RecurringIncomeManager({
   const [payDay, setPayDay] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [notes, setNotes] = useState("");
+  const [showCreate, setShowCreate] = useState(incomes.length === 0);
+  const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -59,6 +61,7 @@ export function RecurringIncomeManager({
 
   function openRecord(i: RecurringIncomeItem) {
     setError(null);
+    setSuccess(null);
     setRecordTarget(i);
     setRecordAccountId(accounts.find((a) => a.currency === i.currency)?.id ?? accounts[0]?.id ?? "");
     setRecordDate(todayISO());
@@ -67,6 +70,7 @@ export function RecurringIncomeManager({
   async function create(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setBusy(true);
     const body: Record<string, string> = {
       name: name.trim(),
@@ -85,6 +89,7 @@ export function RecurringIncomeManager({
       setNotes("");
       setCategoryId("");
       setPayDay("");
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not create the income.");
@@ -97,6 +102,7 @@ export function RecurringIncomeManager({
     e.preventDefault();
     if (!editing) return;
     setError(null);
+    setSuccess(null);
     setBusy(true);
     const payload: Record<string, string> = {
       amount: String(fromMinorUnits(editing.amountMinor, editing.currency)),
@@ -112,6 +118,7 @@ export function RecurringIncomeManager({
         body: JSON.stringify(payload),
       });
       setEditing(null);
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not update the income.");
@@ -131,6 +138,7 @@ export function RecurringIncomeManager({
       return;
     }
     setError(null);
+    setSuccess(null);
     setBusy(true);
     try {
       await apiFetch(`/api/recurring-income/${recordTarget.id}`, {
@@ -143,6 +151,7 @@ export function RecurringIncomeManager({
       setRecordTarget(null);
       setRecordAccountId("");
       setRecordDate("");
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not record the income.");
@@ -153,12 +162,14 @@ export function RecurringIncomeManager({
 
   async function archive(id: string) {
     setError(null);
+    setSuccess(null);
     setBusyId(id);
     try {
       await apiFetch(`/api/recurring-income/${id}`, {
         method: "PATCH",
         body: JSON.stringify({ archived: true }),
       });
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not archive the income.");
@@ -169,6 +180,10 @@ export function RecurringIncomeManager({
 
   return (
     <div className="space-y-6">
+      {error ? <Alert variant="error">{error}</Alert> : null}
+      {success ? <Alert variant="success">{success}</Alert> : null}
+      <details open={showCreate} onToggle={(e) => setShowCreate(e.currentTarget.open)} className="rounded-xl border border-line bg-surface">
+        <summary className="cursor-pointer rounded-xl px-5 py-3 text-sm font-semibold text-primary-700 dark:text-primary-300">Add income</summary>
       <Card>
         <CardContent>
           <form onSubmit={create} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
@@ -237,13 +252,9 @@ export function RecurringIncomeManager({
               <Input id="ri-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
             </Field>
           </form>
-          {error ? (
-            <div className="mt-4">
-              <Alert variant="error">{error}</Alert>
-            </div>
-          ) : null}
         </CardContent>
       </Card>
+      </details>
 
       {recordTarget ? (
         <Card>

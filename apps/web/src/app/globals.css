@@ -60,7 +60,7 @@
   --heading: #1c1917;
   --body-text: #57534e;
   --muted: #79716b;
-  --faint: #a8a29e;
+  --faint: #706963;
 }
 
 .dark {
@@ -72,7 +72,7 @@
   --heading: #fafaf9;
   --body-text: #d6d3d1;
   --muted: #a8a29e;
-  --faint: #78716c;
+  --faint: #a8a29e;
 }
 
 /* `inline` re-exports the variables above as Tailwind utilities

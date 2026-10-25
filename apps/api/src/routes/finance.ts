@@ -290,6 +290,7 @@ finance.post("/transactions", async (c) => {
           transactionDate: transaction.transactionDate.toISOString(),
           accountId: transaction.accountId,
           categoryId: transaction.categoryId,
+          debtId: transaction.debtId,
         },
       },
       { status: 201 },
@@ -316,6 +317,7 @@ finance.patch("/transactions/:id", async (c) => {
         amountMinor: minorToNumber(transaction.amountMinor),
         transactionDate: transaction.transactionDate.toISOString(),
         categoryId: transaction.categoryId,
+        debtId: transaction.debtId,
       },
     });
   } catch (err) {

@@ -110,6 +110,7 @@ export const expenseCreateSchema = z.object({
   kind: z.literal("EXPENSE"),
   ...transactionBase,
   categoryId: cuid("Category").optional(),
+  debtId: cuid("Debt").optional(),
 });
 
 export type ExpenseCreateInput = z.infer<typeof expenseCreateSchema>;
@@ -130,6 +131,7 @@ export const transactionCreateSchema = z.discriminatedUnion("kind", [
 export type TransactionCreateInput = z.infer<typeof transactionCreateSchema>;
 
 export const transactionUpdateSchema = z.object({
+  debtId: cuiOptional("Debt"),
   amount: moneyInputSchema.optional(),
   transactionDate: dateSchema.optional(),
   description: descriptionSchema.optional(),

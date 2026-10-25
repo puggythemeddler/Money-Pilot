@@ -39,6 +39,8 @@ export function BudgetsManager({ budgets, categories }: { budgets: BudgetItem[];
   const [categoryId, setCategoryId] = useState("");
   const [isGlobal, setIsGlobal] = useState(false);
   const [notes, setNotes] = useState("");
+  const [showCreate, setShowCreate] = useState(budgets.length === 0);
+  const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -49,6 +51,7 @@ export function BudgetsManager({ budgets, categories }: { budgets: BudgetItem[];
   async function create(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setBusy(true);
     const body: Record<string, string> = {
       name: name.trim(),
@@ -65,6 +68,7 @@ export function BudgetsManager({ budgets, categories }: { budgets: BudgetItem[];
       setNotes("");
       setCategoryId("");
       setIsGlobal(false);
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not create the budget.");
@@ -77,6 +81,7 @@ export function BudgetsManager({ budgets, categories }: { budgets: BudgetItem[];
     e.preventDefault();
     if (!editing) return;
     setError(null);
+    setSuccess(null);
     setBusy(true);
     const payload: Record<string, string> = {
       amount: String(fromMinorUnits(editing.amountMinor, editing.currency)),
@@ -86,6 +91,7 @@ export function BudgetsManager({ budgets, categories }: { budgets: BudgetItem[];
     try {
       await apiFetch(`/api/budgets/${editing.id}`, { method: "PATCH", body: JSON.stringify(payload) });
       setEditing(null);
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not update the budget.");
@@ -96,9 +102,11 @@ export function BudgetsManager({ budgets, categories }: { budgets: BudgetItem[];
 
   async function archive(id: string) {
     setError(null);
+    setSuccess(null);
     setBusyId(id);
     try {
       await apiFetch(`/api/budgets/${id}`, { method: "PATCH", body: JSON.stringify({ archived: true }) });
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not archive the budget.");
@@ -112,9 +120,13 @@ export function BudgetsManager({ budgets, categories }: { budgets: BudgetItem[];
 
   return (
     <div className="space-y-6">
+      {error ? <Alert variant="error">{error}</Alert> : null}
+      {success ? <Alert variant="success">{success}</Alert> : null}
+      <details open={showCreate} onToggle={(e) => setShowCreate(e.currentTarget.open)} className="rounded-xl border border-line bg-surface">
+        <summary className="cursor-pointer rounded-xl px-5 py-3 text-sm font-semibold text-primary-700 dark:text-primary-300">Create budget</summary>
       <Card>
         <CardContent>
-          <form onSubmit={create} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <form onSubmit={create} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Name" htmlFor="bd-name">
               <Input id="bd-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Groceries" required />
             </Field>
@@ -164,13 +176,9 @@ export function BudgetsManager({ budgets, categories }: { budgets: BudgetItem[];
               <Input id="bd-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
             </Field>
           </form>
-          {error ? (
-            <div className="mt-4">
-              <Alert variant="error">{error}</Alert>
-            </div>
-          ) : null}
         </CardContent>
       </Card>
+      </details>
 
       {editing ? (
         <Card>

@@ -36,12 +36,13 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   if (query.q) params.set("q", query.q);
   const qs = params.toString();
 
-  const [result, accounts, categories] = await Promise.all([
+  const [result, accounts, categories, debts] = await Promise.all([
     serverFetch<{ items: TransactionItem[]; pagination: { total: number } }>(
       `/api/transactions${qs ? `?${qs}` : ""}`,
     ),
     serverFetch<{ accounts: AccountRow[] }>("/api/accounts"),
     serverFetch<{ categories: CategoryRow[] }>("/api/categories"),
+    serverFetch<{ debts: { id: string; name: string; currency: string; categoryId: string | null }[] }>("/api/debts"),
   ]);
 
   const accountOptions = accounts.accounts.map((a) => ({
@@ -63,6 +64,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
         total={result.pagination.total}
         accounts={accountOptions}
         categories={categoryOptions}
+        debts={debts.debts}
         filters={{ kind: query.kind, accountId: query.accountId, q: query.q }}
       />
     </div>

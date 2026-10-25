@@ -42,6 +42,7 @@ export interface TransactionItem {
   categoryName: string | null;
   categoryColor: string | null;
   transferId: string | null;
+  debtId?: string | null;
 }
 
 export interface TransactionsManagerProps {
@@ -49,10 +50,11 @@ export interface TransactionsManagerProps {
   total: number;
   accounts: AccountOption[];
   categories: CategoryOption[];
+  debts: { id: string; name: string; currency: string; categoryId?: string | null }[];
   filters: { kind?: string; accountId?: string; q?: string };
 }
 
-export function TransactionsManager({ items, total, accounts, categories, filters }: TransactionsManagerProps) {
+export function TransactionsManager({ items, total, accounts, categories, debts, filters }: TransactionsManagerProps) {
   const router = useRouter();
   const [kind, setKind] = useState<"EXPENSE" | "INCOME">("EXPENSE");
   const [accountId, setAccountId] = useState("");
@@ -61,6 +63,8 @@ export function TransactionsManager({ items, total, accounts, categories, filter
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [description, setDescription] = useState("");
   const [merchant, setMerchant] = useState("");
+  const [showCreate, setShowCreate] = useState(items.length === 0);
+  const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -71,6 +75,7 @@ export function TransactionsManager({ items, total, accounts, categories, filter
   async function create(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setBusy(true);
     const body: Record<string, string> = {
       kind,
@@ -88,6 +93,7 @@ export function TransactionsManager({ items, total, accounts, categories, filter
       setMerchant("");
       setCategoryId("");
       setAccountId("");
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not save the transaction.");
@@ -98,9 +104,11 @@ export function TransactionsManager({ items, total, accounts, categories, filter
 
   async function remove(id: string) {
     setError(null);
+    setSuccess(null);
     setBusyId(id);
     try {
       await apiFetch(`/api/transactions/${id}`, { method: "DELETE" });
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not delete the transaction.");
@@ -113,8 +121,10 @@ export function TransactionsManager({ items, total, accounts, categories, filter
     e.preventDefault();
     if (!editing) return;
     setError(null);
+    setSuccess(null);
     setBusy(true);
-    const payload: Record<string, string> = {
+    const payload: Record<string, string | null> = {
+      debtId: editing.debtId ?? null,
       amount: String(fromMinorUnits(Math.abs(editing.amountMinor), editing.currency)),
       transactionDate: editing.transactionDate.slice(0, 10),
     };
@@ -124,6 +134,7 @@ export function TransactionsManager({ items, total, accounts, categories, filter
     try {
       await apiFetch(`/api/transactions/${editing.id}`, { method: "PATCH", body: JSON.stringify(payload) });
       setEditing(null);
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not update the transaction.");
@@ -144,9 +155,13 @@ export function TransactionsManager({ items, total, accounts, categories, filter
 
   return (
     <div className="space-y-6">
+      {error ? <Alert variant="error">{error}</Alert> : null}
+      {success ? <Alert variant="success">{success}</Alert> : null}
+      <details open={showCreate} onToggle={(e) => setShowCreate(e.currentTarget.open)} className="rounded-xl border border-line bg-surface">
+        <summary className="cursor-pointer rounded-xl px-5 py-3 text-sm font-semibold text-primary-700 dark:text-primary-300">Add transaction</summary>
       <Card>
         <CardContent>
-          <form onSubmit={create} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <form onSubmit={create} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Type" htmlFor="tx-kind">
               <Select
                 id="tx-kind"
@@ -212,13 +227,9 @@ export function TransactionsManager({ items, total, accounts, categories, filter
               </Button>
             </div>
           </form>
-          {error ? (
-            <div className="mt-4">
-              <Alert variant="error">{error}</Alert>
-            </div>
-          ) : null}
         </CardContent>
       </Card>
+      </details>
 
       {editing ? (
         <Card>
@@ -291,6 +302,15 @@ export function TransactionsManager({ items, total, accounts, categories, filter
                   Cancel
                 </Button>
               </div>
+              {editing.kind === "EXPENSE" && !editing.shared ? (
+                <Field label="Payment for debt" htmlFor="tx-edit-debt">
+                  <Select id="tx-edit-debt" value={editing.debtId ?? ""} onChange={(e) => setEditing({ ...editing, debtId: e.target.value || null })}>
+                    <option value="">Not allocated to a debt</option>
+                    {debts.filter((d) => d.currency === editing.currency).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </Select>
+                  <p className="mt-1 text-xs text-muted">Assign this whole expense to one creditor. Categories alone never count as a debt payment.</p>
+                </Field>
+              ) : null}
             </form>
           </CardContent>
         </Card>
@@ -356,6 +376,8 @@ export function TransactionsManager({ items, total, accounts, categories, filter
                       {t.kind === "TRANSFER" ? (
                         <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">Transfer</span>
                       ) : null}
+                      {t.debtId ? <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-body">Debt payment: {debts.find((d) => d.id === t.debtId)?.name ?? "linked creditor"}</span> : null}
+                      {!t.debtId && t.kind === "EXPENSE" && t.categoryId && debts.some((d) => d.categoryId === t.categoryId && d.currency === t.currency) ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-900">Unallocated repayment — edit to choose creditor</span> : null}
                       {t.shared ? (
                         <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-700 dark:bg-primary-950/60 dark:text-primary-300">
                           Shared{t.recordedByName ? ` · ${t.recordedByName}` : ""}

@@ -349,6 +349,7 @@ model Transaction {
   userId          String
   accountId       String
   categoryId      String?
+  debtId          String?
   kind            String // INCOME | EXPENSE | TRANSFER | ADJUSTMENT
   amountMinor     BigInt
   currency        String    @default("KES")
@@ -367,10 +368,12 @@ model Transaction {
   transfer Transfer?     @relation(fields: [transferId], references: [id], onDelete: SetNull)
   billPayment BillPayment?
   incomeReceipt IncomeReceipt?
+  debt Debt? @relation(fields: [debtId], references: [id], onDelete: SetNull)
 
   @@index([userId, transactionDate])
   @@index([accountId])
   @@index([categoryId])
+  @@index([debtId])
   @@map("transactions")
 }
 
@@ -447,7 +450,7 @@ model Debt {
   interestRate        String? // annual percentage as a decimal string, e.g. "13.5"
   minimumPaymentMinor BigInt?
   dueDay              Int?
-  categoryId          String? // EXPENSE category whose transactions count as payments
+  categoryId          String? // Default category for expenses explicitly linked to this debt
   notes               String?
   archivedAt          DateTime?
   createdAt           DateTime  @default(now())
@@ -455,6 +458,7 @@ model Debt {
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  payments Transaction[]
 
   @@index([userId])
   @@index([categoryId])

@@ -1,11 +1,11 @@
 import { MoneyPilotLogo } from "@/components/Logo";
-import { Button } from "@/components/ui/button";
+
 
 const features = [
   {
     title: "Expenses & income",
     description:
-      "Record money in and money out in seconds, with categories, accounts, receipts and tags.",
+      "Record money in and money out in seconds, with categories, accounts and clear notes.",
   },
   {
     title: "Debt management",
@@ -21,12 +21,12 @@ const features = [
     description: "Set monthly or custom budgets. See committed vs spent vs still available.",
   },
   {
-    title: "Reports that tell the truth",
-    description: "Cash-flow, expense, debt and net-worth reports built from your actual records.",
+    title: "A clear financial overview",
+    description: "See account balances, monthly spending and outstanding debts from your actual records.",
   },
   {
-    title: "On every device",
-    description: "Web, Android and iPhone share one account. Your data syncs securely between them.",
+    title: "A mobile-friendly web app",
+    description: "Use MoneyPilot in your phone, tablet or desktop browser with one account.",
   },
 ];
 
@@ -36,14 +36,8 @@ export default function LandingPage() {
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
         <MoneyPilotLogo />
         <nav className="flex items-center gap-2" aria-label="Main">
-          <a href="/login">
-            <Button variant="ghost" size="sm">
-              Log in
-            </Button>
-          </a>
-          <a href="/register">
-            <Button size="sm">Get started</Button>
-          </a>
+          <a href="/login" className="inline-flex min-h-11 items-center justify-center rounded-lg px-5 py-2 text-sm font-semibold border border-line text-body hover:bg-surface-2">Log in</a>
+          <a href="/register" className="inline-flex min-h-11 items-center justify-center rounded-lg px-5 py-2 text-sm font-semibold bg-primary-700 text-white hover:bg-primary-800">Get started</a>
         </nav>
       </header>
 
@@ -59,17 +53,11 @@ export default function LandingPage() {
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg text-body">
             MoneyPilot gives you one honest, calm picture of your finances — income, expenses, debts,
-            bills and budgets — on web, Android and iPhone.
+            bills and budgets — in your browser, on your phone or computer.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a href="/register" className="inline-flex">
-              <Button size="lg">Create your account</Button>
-            </a>
-            <a href="/login" className="inline-flex">
-              <Button size="lg" variant="outline">
-                Log in
-              </Button>
-            </a>
+            <a href="/register" className="inline-flex min-h-11 items-center justify-center rounded-lg px-5 py-2 text-sm font-semibold bg-primary-700 text-white hover:bg-primary-800">Create your account</a>
+            <a href="/login" className="inline-flex min-h-11 items-center justify-center rounded-lg px-5 py-2 text-sm font-semibold border border-line text-body hover:bg-surface-2">Log in</a>
           </div>
           <p className="mt-6 text-sm text-muted">
             Free to start. No card required. Your data stays yours.
@@ -99,9 +87,7 @@ export default function LandingPage() {
               MoneyPilot was designed for people working through debt. No judgements, no hype — just
               accurate numbers, honest estimates, and tools to plan your way out.
             </p>
-            <a href="/register" className="mt-8 inline-flex">
-              <Button size="lg">Start with a free account</Button>
-            </a>
+            <a href="/register" className="inline-flex min-h-11 items-center justify-center rounded-lg px-5 py-2 text-sm font-semibold bg-primary-700 text-white hover:bg-primary-800">Start with a free account</a>
           </div>
         </section>
       </main>

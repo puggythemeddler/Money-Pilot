@@ -29,18 +29,16 @@ export interface DebtItem {
   categoryName: string | null;
   notes: string | null;
   archived: boolean;
-  /** Sum of payments (expenses tagged in the linked category), derived. */
+  /** Sum of expenses explicitly linked to this debt, derived. */
   paidMinor: number;
   /** principal − paid. */
   balanceMinor: number;
 }
 
-/** Sums payments recorded against a debt: EXPENSE transactions in the linked
- *  category, in the debt's currency (derived from the transaction log). */
-async function paymentsForCategory(userId: string, categoryId: string | null, currency: string): Promise<number> {
-  if (!categoryId) return 0;
+/** Sums payments recorded against a debt: explicitly linked EXPENSE transactions, in the debt's currency (derived from the transaction log). */
+async function paymentsForDebt(userId: string, debtId: string, currency: string): Promise<number> {
   const agg = await prisma.transaction.aggregate({
-    where: { userId, kind: "EXPENSE", categoryId, currency, deletedAt: null },
+    where: { userId, kind: "EXPENSE", debtId, currency, deletedAt: null, account: { householdId: null } },
     _sum: { amountMinor: true },
   });
   return -minorToNumber(agg._sum.amountMinor ?? 0);
@@ -58,7 +56,7 @@ export async function listDebts(userId: string, includeArchived = false) {
   for (const d of rows) {
     paidByKey.set(
       `${d.id}::${d.currency}`,
-      await paymentsForCategory(userId, d.categoryId, d.currency),
+      await paymentsForDebt(userId, d.id, d.currency),
     );
   }
 
@@ -95,6 +93,7 @@ export interface DebtOverviewItem {
 
 export interface DebtOverview {
   count: number;
+  unallocatedCount: number;
   currency: string;
   totalMinor: number;
   others: { currency: string; totalMinor: number }[];
@@ -110,8 +109,13 @@ export interface DebtOverview {
  */
 export async function debtOverview(userId: string, preferredCurrency: string): Promise<DebtOverview> {
   const debts = await listDebts(userId);
+  const categories = [...new Set(debts.map((d) => d.categoryId).filter((id): id is string => id !== null))];
+  const unallocatedCount = categories.length ? await prisma.transaction.count({ where: {
+    userId, kind: "EXPENSE", deletedAt: null, debtId: null,
+    categoryId: { in: categories }, account: { householdId: null },
+  } }) : 0;
   const byCurrency = new Map<string, number>();
-  const items: DebtOverviewItem[] = debts.map((d) => {
+  const items: DebtOverviewItem[] = debts.filter((d) => d.balanceMinor > 0).map((d) => {
     const balanceMinor = Math.max(0, d.balanceMinor);
     byCurrency.set(d.currency, (byCurrency.get(d.currency) ?? 0) + balanceMinor);
     return { id: d.id, name: d.name, institution: d.institution, currency: d.currency, balanceMinor };
@@ -123,7 +127,7 @@ export async function debtOverview(userId: string, preferredCurrency: string): P
     .map(([currency, otherTotal]) => ({ currency, totalMinor: otherTotal }))
     .sort((a, b) => b.totalMinor - a.totalMinor);
 
-  return { count: items.length, currency: preferredCurrency, totalMinor, others, items };
+  return { count: items.length, unallocatedCount, currency: preferredCurrency, totalMinor, others, items };
 }
 
 async function validateCategory(userId: string, categoryId: string) {

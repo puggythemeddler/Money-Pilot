@@ -19,6 +19,15 @@ export type TransactionCreateInput = z.infer<typeof transactionCreateSchema>;
 export type TransactionUpdateInput = z.infer<typeof transactionUpdateSchema>;
 export type TransactionQuery = z.infer<typeof transactionQuerySchema>;
 
+/** Payments are personal expenses and must identify a debt owned by the caller. */
+async function validatePaymentDebt(userId: string, debtId: string, kind: string, currency: string, shared: boolean) {
+  const debt = await prisma.debt.findFirst({ where: { id: debtId, userId, archivedAt: null } });
+  if (!debt) throw new AppError(ErrorCodes.NOT_FOUND, "Debt not found.", 404);
+  if (kind !== "EXPENSE" || shared || debt.currency !== currency) {
+    throw new AppError(ErrorCodes.VALIDATION, "Choose a personal expense in the debt's currency.", 400);
+  }
+}
+
 export interface TransactionItem {
   id: string;
   kind: string;
@@ -38,6 +47,7 @@ export interface TransactionItem {
   categoryName: string | null;
   categoryColor: string | null;
   transferId: string | null;
+  debtId: string | null;
   createdAt: string;
 }
 
@@ -51,8 +61,10 @@ export async function listTransactions(userId: string, query: TransactionQuery) 
     deletedAt: null,
     ...(query.kind ? { kind: query.kind } : {}),
     ...(query.categoryId ? { categoryId: query.categoryId } : {}),
-    ...(query.from ? { transactionDate: { gte: toUtcMidnight(query.from) } } : {}),
-    ...(query.to ? { transactionDate: { lt: new Date(toUtcMidnight(query.to).getTime() + 86_400_000) } } : {}),
+    ...((query.from || query.to) ? { transactionDate: {
+      ...(query.from ? { gte: toUtcMidnight(query.from) } : {}),
+      ...(query.to ? { lt: new Date(toUtcMidnight(query.to).getTime() + 86_400_000) } : {}),
+    } } : {}),
     ...(query.q
       ? {
           OR: [
@@ -97,6 +109,7 @@ export async function listTransactions(userId: string, query: TransactionQuery) 
       categoryName: t.category?.name ?? null,
       categoryColor: t.category?.color ?? null,
       transferId: t.transferId,
+      debtId: t.debtId,
       createdAt: t.createdAt.toISOString(),
     })),
     pagination: { limit: query.limit, offset: query.offset, total },
@@ -157,12 +170,15 @@ export async function createTransaction(
   }
 
   const amountMinor = parseMoneyInputToMinorUnits(input.amount, account.currency);
+  const debtId = input.kind === "EXPENSE" ? input.debtId : undefined;
+  if (debtId) await validatePaymentDebt(userId, debtId, input.kind, currency, account.householdId !== null);
   const signed = input.kind === "EXPENSE" ? -amountMinor : amountMinor;
   const transaction = await prisma.transaction.create({
     data: {
       userId,
       accountId: account.id,
       categoryId: category?.id ?? null,
+      debtId: debtId ?? null,
       kind: input.kind,
       amountMinor: signed,
       currency,
@@ -244,7 +260,12 @@ export async function updateTransaction(
     merchant?: string | null;
     notes?: string | null;
     categoryId?: string | null;
+    debtId?: string | null;
   } = {};
+  if (input.debtId !== undefined) {
+    if (input.debtId && input.debtId !== existing.debtId) await validatePaymentDebt(userId, input.debtId, existing.kind, existing.currency, existing.account.householdId !== null);
+    data.debtId = input.debtId ?? null;
+  }
   if (input.amount !== undefined) {
     const amountMinor = parseMoneyInputToMinorUnits(input.amount, existing.currency);
     data.amountMinor = existing.kind === "EXPENSE" ? -amountMinor : amountMinor;

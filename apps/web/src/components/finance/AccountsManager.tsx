@@ -40,6 +40,8 @@ export function AccountsManager({ accounts }: { accounts: AccountRow[] }) {
   const [type, setType] = useState("BANK");
   const [currency, setCurrency] = useState("KES");
   const [opening, setOpening] = useState("");
+  const [showCreate, setShowCreate] = useState(accounts.length === 0);
+  const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -47,6 +49,7 @@ export function AccountsManager({ accounts }: { accounts: AccountRow[] }) {
   async function create(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setBusy(true);
     try {
       await apiFetch("/api/accounts", {
@@ -60,6 +63,7 @@ export function AccountsManager({ accounts }: { accounts: AccountRow[] }) {
       });
       setName("");
       setOpening("");
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not create the account.");
@@ -70,12 +74,14 @@ export function AccountsManager({ accounts }: { accounts: AccountRow[] }) {
 
   async function toggleArchived(row: AccountRow) {
     setError(null);
+    setSuccess(null);
     setBusyId(row.id);
     try {
       await apiFetch(`/api/accounts/${row.id}`, {
         method: "PATCH",
         body: JSON.stringify({ archived: !row.archived }),
       });
+      setSuccess("Saved successfully.");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not update the account.");
@@ -86,9 +92,13 @@ export function AccountsManager({ accounts }: { accounts: AccountRow[] }) {
 
   return (
     <div className="space-y-6">
+      {error ? <Alert variant="error">{error}</Alert> : null}
+      {success ? <Alert variant="success">{success}</Alert> : null}
+      <details open={showCreate} onToggle={(e) => setShowCreate(e.currentTarget.open)} className="rounded-xl border border-line bg-surface">
+        <summary className="cursor-pointer rounded-xl px-5 py-3 text-sm font-semibold text-primary-700 dark:text-primary-300">Add account</summary>
       <Card>
         <CardContent>
-          <form onSubmit={create} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <form onSubmit={create} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="sm:col-span-2">
               <Field label="Account name" htmlFor="acct-name">
                 <Input
@@ -136,6 +146,7 @@ export function AccountsManager({ accounts }: { accounts: AccountRow[] }) {
           {error ? <div className="mt-4"><Alert variant="error">{error}</Alert></div> : null}
         </CardContent>
       </Card>
+      </details>
 
       <Card>
         <CardContent className="p-0">
