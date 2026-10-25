@@ -141,7 +141,7 @@ documented in `apps/api/README.md`.
 
 ## Getting started
 
-Requirements: Node.js 20+ (developed on 24), npm.
+Requirements: Node.js 24+ (see `.nvmrc`), npm 10+.
 
 1. Install dependencies:
 

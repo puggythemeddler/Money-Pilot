@@ -9,7 +9,7 @@ const problems = [];
 const databaseUrl = process.env.DATABASE_URL ?? "";
 if (!/^postgres(ql)?:\/\//.test(databaseUrl)) {
   problems.push(
-    `DATABASE_URL must be a PostgreSQL (Neon) connection string (got: "${databaseUrl.slice(0, 24)}…").`,
+    "DATABASE_URL must be a PostgreSQL (Neon) connection string.",
   );
 }
 
@@ -20,7 +20,7 @@ if (!/^postgres(ql)?:\/\//.test(databaseUrl)) {
 const directUrl = process.env.DIRECT_DATABASE_URL ?? "";
 if (!/^postgres(ql)?:\/\//.test(directUrl)) {
   problems.push(
-    `DIRECT_DATABASE_URL must be the direct (non-pooled) PostgreSQL connection string (got: "${directUrl.slice(0, 24)}…").`,
+    "DIRECT_DATABASE_URL must be the direct (non-pooled) PostgreSQL connection string.",
   );
 }
 

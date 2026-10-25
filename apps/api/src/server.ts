@@ -15,6 +15,6 @@ const { createApp } = await import("./app");
 const app = createApp();
 const port = Number(process.env.PORT || 4000);
 
-serve({ fetch: app.fetch, port }, (info) => {
-  console.log(`moneypilot-api listening on http://localhost:${info.port}`);
+serve({ fetch: app.fetch, port, hostname: "0.0.0.0" }, (info) => {
+  console.log(`moneypilot-api listening on http://0.0.0.0:${info.port}`);
 });

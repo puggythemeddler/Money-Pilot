@@ -22,10 +22,15 @@ Both services deploy from the same repository:
 | Service | Platform | Root directory | Serves |
 | ------- | -------- | -------------- | ------ |
 | Web app | Vercel | `apps/web` | The UI; `/api/*` proxied to Render |
-| API | Render (this blueprint: `render.yaml`) | `apps/api` | All business logic, auth, database access |
+| API | Render (this blueprint: `render.yaml`) | Repository root (leave Root Directory blank) | All business logic, auth, database access |
 | Database | Neon | — | PostgreSQL |
 
 ## Environments
+
+Use Node.js 24 for local development, Render, Vercel, and CI. The repository
+declares Node >=24 and includes `.nvmrc`; the Render Blueprint sets
+`NODE_VERSION=24`. In an existing Vercel project, select Node.js 24.x in
+Project Settings before redeploying.
 
 | Environment | Web app                     | API                          | Database                       |
 | ----------- | ---------------------------- | ---------------------------- | ------------------------------ |

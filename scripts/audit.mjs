@@ -35,7 +35,19 @@ function runAudit() {
 }
 
 const result = runAudit();
-const all = Object.values(result.vulnerabilities ?? {});
+// Registry/network errors can be valid JSON too. They are not audit reports.
+if (
+  !result || typeof result !== "object" || result.error ||
+  result.auditReportVersion !== 2 ||
+  !result.vulnerabilities || typeof result.vulnerabilities !== "object" ||
+  Array.isArray(result.vulnerabilities) ||
+  !result.metadata || typeof result.metadata.vulnerabilities !== "object" ||
+  result.metadata.vulnerabilities === null
+) {
+  console.error("audit: npm did not return a complete audit report; dependency security could not be verified.");
+  process.exit(2);
+}
+const all = Object.values(result.vulnerabilities);
 const gateRelevant = all.filter((v) => v.severity === "high" || v.severity === "critical");
 const findings = gateRelevant.filter((v) => !EXCEPTIONS[v.name]);
 const skipped = gateRelevant.filter((v) => EXCEPTIONS[v.name]);
