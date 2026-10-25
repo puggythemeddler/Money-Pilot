@@ -54,7 +54,7 @@ test("the dashboard aggregates balances, cash flow and recent activity", async (
 
   // Top spending groups expenses by category (name + colored badge).
   await expect(page.getByText("Top spending")).toBeVisible();
-  await expect(page.getByText("Food and drinks").first()).toBeVisible();
+  await expect(page.getByRole("listitem").getByText("Food and drinks", { exact: true }).first()).toBeVisible();
 
   // Recent activity lists the latest records across accounts.
   await expect(page.getByText("Recent activity")).toBeVisible();
