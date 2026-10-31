@@ -12,6 +12,7 @@ const realNav = [
   { href: "/dashboard", label: "Overview", icon: Icons.dashboard },
   { href: "/dashboard/accounts", label: "Accounts", icon: Icons.wallet },
   { href: "/dashboard/transactions", label: "Transactions", icon: Icons.receipt },
+  { href: "/dashboard/reports", label: "Reports", icon: Icons.target },
   { href: "/dashboard/income", label: "Income", icon: Icons.income },
   { href: "/dashboard/transfers", label: "Transfers", icon: Icons.swap },
   { href: "/dashboard/household", label: "Household", icon: Icons.users },
@@ -24,7 +25,7 @@ const realNav = [
 
 const mobileNav = ["/dashboard", "/dashboard/accounts", "/dashboard/transactions", "/dashboard/debts"];
 
-const comingSoon = ["Calendar", "Reports", "Imports"];
+const comingSoon = ["Calendar", "Imports"];
 
 function MobileNotice({ children }: { children: React.ReactNode }) {
   return (

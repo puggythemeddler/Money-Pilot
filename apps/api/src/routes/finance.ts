@@ -14,6 +14,7 @@ import {
   debtQuerySchema,
   debtUpdateSchema,
   minorToNumber,
+  currentReportMonth,
   incomeRecordSchema,
   recurringIncomeCreateSchema,
   recurringIncomeUpdateSchema,
@@ -41,6 +42,7 @@ import {
   updateRecurringIncome,
 } from "@/lib/finance/recurringIncome";
 import { dashboardSummary } from "@/lib/finance/dashboard";
+import { financeReport } from "@/lib/finance/reports";
 
 /**
  * Finance routes mounted at /api: accounts, transactions, transfers,
@@ -719,6 +721,14 @@ finance.get("/dashboard", async (c) => {
   } catch (err) {
     return fail(err, requestId);
   }
+});
+
+finance.get('/reports', async (c) => {
+  const requestId = newRequestId();
+  try {
+    const context = await requireUser(c.req.raw);
+    return ok(await financeReport(context.user.id, c.req.query('month') ?? currentReportMonth(context.user.timezone), c.req.query('currency') ?? context.user.preferredCurrency));
+  } catch (err) { return fail(err, requestId); }
 });
 
 export const financeRoutes = finance;
