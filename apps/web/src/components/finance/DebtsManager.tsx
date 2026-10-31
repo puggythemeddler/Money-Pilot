@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CURRENCIES, formatMoney, fromMinorUnits, parseMoneyToMinorUnits } from "@moneypilot/shared";
 import { Alert } from "@/components/ui/alert";
@@ -73,6 +73,16 @@ export function DebtsManager({
   const [payAmount, setPayAmount] = useState("");
   const [payCategoryId, setPayCategoryId] = useState("");
   const [payDate, setPayDate] = useState("");
+  const payAmountInput = useRef<HTMLInputElement>(null);
+  const editNameInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (payTarget?.id) payAmountInput.current?.focus();
+  }, [payTarget?.id]);
+
+  useEffect(() => {
+    if (editing?.id) editNameInput.current?.focus();
+  }, [editing?.id]);
 
   const expenseCategories = categories.filter((c) => c.kind === "EXPENSE");
 
@@ -144,6 +154,7 @@ export function DebtsManager({
   }
 
   function openPay(d: DebtItem) {
+    setEditing(null);
     setError(null);
     setSuccess(null);
     setPayTarget(d);
@@ -293,7 +304,7 @@ export function DebtsManager({
             <p className="mb-3 text-sm font-semibold text-heading">Edit debt · {editing.name}</p>
             <form onSubmit={saveEdit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Name" htmlFor="dt-edit-name">
-                <Input id="dt-edit-name" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
+                <Input ref={editNameInput} id="dt-edit-name" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
               </Field>
               <Field label="Principal owed" htmlFor="dt-edit-principal">
                 <Input
@@ -377,6 +388,7 @@ export function DebtsManager({
               <Field label="Amount" htmlFor="dt-pay-amount">
                 <Input
                   id="dt-pay-amount"
+                  ref={payAmountInput}
                   value={payAmount}
                   onChange={(e) => setPayAmount(e.target.value)}
                   inputMode="decimal"
@@ -441,9 +453,9 @@ export function DebtsManager({
                 const remainingPct = d.principalMinor > 0 ? Math.max(0, Math.min(100, (d.balanceMinor / d.principalMinor) * 100)) : 0;
                 return (
                   <li key={d.id} className="px-4 py-3">
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-heading">
+                        <p className="break-words text-sm font-medium text-heading">
                           {d.name}
                           <span className="ml-2 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">
                             {typeLabels[d.type] ?? d.type}
@@ -456,24 +468,26 @@ export function DebtsManager({
                           {d.categoryName ? <span>category: {d.categoryName}</span> : <span>no payments category</span>}
                         </p>
                       </div>
-                      <div className="flex shrink-0 items-center gap-3">
-                        <p className="text-right text-sm font-semibold tabular-nums text-heading">
+                      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between xl:shrink-0">
+                        <p className="break-words text-sm font-semibold tabular-nums text-heading xl:text-right">
                           {formatMoney(Math.max(0, d.balanceMinor), d.currency)}
                           <span className="block text-xs font-normal text-faint">
                             paid {formatMoney(d.paidMinor, d.currency)} of {formatMoney(d.principalMinor, d.currency)}
                           </span>
                         </p>
+                        <div className="flex flex-wrap items-center gap-2">
                         {d.balanceMinor > 0 ? (
                           <Button variant="outline" size="sm" onClick={() => openPay(d)}>
                             Pay
                           </Button>
                         ) : null}
-                        <Button variant="ghost" size="sm" onClick={() => setEditing(d)}>
+                        <Button variant="ghost" size="sm" onClick={() => { setPayTarget(null); setEditing(d); }}>
                           Edit
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => archive(d.id)} disabled={busyId !== null} loading={busyId === d.id}>
                           Archive
                         </Button>
+                        </div>
                       </div>
                     </div>
                     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">

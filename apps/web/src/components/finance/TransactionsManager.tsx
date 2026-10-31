@@ -357,10 +357,10 @@ export function TransactionsManager({ items, total, accounts, categories, debts,
           ) : (
             <ul className="divide-y divide-line">
               {items.map((t) => (
-                <li key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                <li key={t.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <p className="truncate text-sm font-medium text-heading">
+                      <p className="break-words text-sm font-medium text-heading">
                         {t.description || (t.kind === "TRANSFER" ? "Transfer" : "Transaction")}
                         {t.merchant ? <span className="font-normal text-faint"> · {t.merchant}</span> : null}
                       </p>
@@ -389,7 +389,7 @@ export function TransactionsManager({ items, total, accounts, categories, debts,
                       {new Date(t.transactionDate).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
                     </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-3 sm:shrink-0">
                     <p
                       className={`text-sm font-semibold tabular-nums ${
                         t.amountMinor < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"

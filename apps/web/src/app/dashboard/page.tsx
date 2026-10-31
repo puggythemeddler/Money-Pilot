@@ -110,7 +110,7 @@ export default async function DashboardPage() {
         </Card>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 2xl:grid-cols-4">
         <Card>
           <CardHeader className="p-4 sm:p-6">
             <CardDescription>Money in accounts</CardDescription>
@@ -255,7 +255,7 @@ export default async function DashboardPage() {
       ) : null}
 
       {summary.accounts.length > 0 ? (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader className="flex-row items-center justify-between space-y-0">
               <div>
