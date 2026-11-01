@@ -20,6 +20,8 @@ test('light and dark themes remain readable and fit desktop and mobile', async (
       expect((await page.locator('html').getAttribute('class') ?? '').includes('dark')).toBe(theme === 'dark');
       if (route === 'dashboard/tax') {
         await page.locator('#employer-1').fill('Example employer');
+  await page.locator('#employment-start-1').fill('2025-01-01');
+  await page.locator('#employment-end-1').fill('2025-12-31');
         await page.locator('#chargeable-1').fill('1000000');
         await page.locator('#paye-1').fill('200000');
         await page.locator('#insurance-1').fill('0');

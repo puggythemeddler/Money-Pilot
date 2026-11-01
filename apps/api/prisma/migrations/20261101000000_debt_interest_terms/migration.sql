@@ -1,0 +1,5 @@
+ALTER TABLE "debts"
+  ADD COLUMN "interestMethod" TEXT NOT NULL DEFAULT 'NONE',
+  ADD COLUMN "interestPeriod" TEXT NOT NULL DEFAULT 'ANNUAL',
+  ADD COLUMN "startDate" TEXT,
+  ADD COLUMN "termMonths" INTEGER;

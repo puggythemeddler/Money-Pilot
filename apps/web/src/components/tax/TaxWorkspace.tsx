@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
 import { readTaxDocument } from '@/lib/tax-documents';
 
-type Draft = { id: number; employer: string; kind: 'P9' | 'PAYSLIP'; month: string; chargeable: string; paye: string; insurance: string; text: string; source: string; reviewed: boolean; wrongYear: boolean };
+type Draft = { id: number; employer: string; kind: 'P9' | 'PAYSLIP'; month: string; employmentStart: string; employmentEnd: string; chargeable: string; paye: string; insurance: string; text: string; source: string; reviewed: boolean; wrongYear: boolean };
 const money = (amount: number) => formatMoney(amount, 'KES');
-const initial = (id: number): Draft => ({ id, employer: '', kind: 'P9', month: '', chargeable: '', paye: '', insurance: '', text: '', source: 'Manual entry', reviewed: false, wrongYear: false });
+const initial = (id: number): Draft => ({ id, employer: '', kind: 'P9', month: '', employmentStart: '', employmentEnd: '', chargeable: '', paye: '', insurance: '', text: '', source: 'Manual entry', reviewed: false, wrongYear: false });
 const csvCell = (value: string) => '"' + (/^[\s=+\-@]/.test(value) ? "'" : '') + value.replace(/"/g, '""') + '"';
 
 export function TaxWorkspace() {
@@ -53,7 +53,7 @@ export function TaxWorkspace() {
         if (!/^\d+(?:\.\d{1,2})?$/.test(value.trim())) throw new Error('Fill every amount using up to two decimals, without commas. Enter 0 where none applies.');
         return parseMoneyToMinorUnits(value, 'KES');
       };
-      return { employer: item.employer, kind: item.kind, month: item.month, chargeableMinor: parse(item.chargeable), payeMinor: parse(item.paye), insuranceReliefMinor: parse(item.insurance) };
+      return { employer: item.employer, kind: item.kind, month: item.month, employmentStart: item.employmentStart, employmentEnd: item.employmentEnd, chargeableMinor: parse(item.chargeable), payeMinor: parse(item.paye), insuranceReliefMinor: parse(item.insurance) };
     });
   }
   function calculate() {
@@ -65,8 +65,8 @@ export function TaxWorkspace() {
   }
   function download() {
     if (!result || !complete || !scope) return;
-    const rows = [['MoneyPilot 2025 employment worksheet', result.ruleVersion], ['Status', 'Reviewed worksheet; reconcile on iTax. Not a submitted return.'], ['Employer', 'Document', 'Period', 'Chargeable pay KES', 'PAYE deducted KES', 'Insurance relief KES'],
-      ...entries().map((entry) => [entry.employer, entry.kind, entry.kind === 'P9' ? '2025 annual' : entry.month!, (entry.chargeableMinor / 100).toFixed(2), (entry.payeMinor / 100).toFixed(2), (entry.insuranceReliefMinor / 100).toFixed(2)]),
+    const rows = [['MoneyPilot 2025 employment worksheet', result.ruleVersion], ['Status', 'Reviewed worksheet; reconcile on iTax. Not a submitted return.'], ['Employer', 'Document', 'Period', 'Employment start', 'Employment end', 'Chargeable pay KES', 'PAYE deducted KES', 'Insurance relief KES'],
+      ...entries().map((entry) => [entry.employer, entry.kind, entry.kind === 'P9' ? '2025 annual' : entry.month!, entry.employmentStart, entry.employmentEnd, (entry.chargeableMinor / 100).toFixed(2), (entry.payeMinor / 100).toFixed(2), (entry.insuranceReliefMinor / 100).toFixed(2)]),
       ['Combined chargeable income', (result.chargeableMinor / 100).toFixed(2)], ['Tax before relief', (result.taxBeforeReliefMinor / 100).toFixed(2)], ['Personal relief', (result.personalReliefMinor / 100).toFixed(2)], ['Insurance relief applied', (result.insuranceReliefMinor / 100).toFixed(2)], ['Tax after relief', (result.taxAfterReliefMinor / 100).toFixed(2)], ['PAYE deducted', (result.payeMinor / 100).toFixed(2)], ['Estimated balance (negative = potential overpayment)', (result.balanceMinor / 100).toFixed(2)], ['Rules source', KENYA_TAX_RULES.sources[0]]];
     const url = URL.createObjectURL(new Blob(['\uFEFF' + rows.map((row) => row.map(csvCell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a'); link.href = url; link.download = 'MoneyPilot-2025-tax-worksheet.csv'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -88,13 +88,15 @@ export function TaxWorkspace() {
     {busy !== null ? <Button type="button" variant="outline" onClick={() => { reader.current?.abort(); reader.current = null; setBusy(null); setStatus('Reading cancelled. Review the previous figures before calculating.'); }}>Cancel reading</Button> : null}
     <section aria-labelledby="tax-documents" className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="tax-documents" className="text-lg font-semibold">Employment documents</h2><Button type="button" variant="outline" disabled={busy !== null || drafts.length >= 24} onClick={() => { setDrafts([...drafts, initial(nextId.current++)]); setResult(null); setComplete(false); }}>Add employer / payslip</Button></div>
-      <p className="text-sm text-muted">Use one annual P9 per employer, or one payslip per month. Do not count a P9 and its supporting payslips twice. You can read a supporting document separately and remove it before calculating.</p>
+      <p className="text-sm text-muted">Use one annual P9 per employer, or one payslip per month. Enter the employment dates covered in 2025; different employers may overlap. Actual earnings are used without annualising. Do not count a P9 and its supporting payslips twice. You can read a supporting document separately and remove it before calculating.</p>
       {drafts.map((item, index) => <article key={item.id} className="border border-line bg-surface" aria-label={`Employment document ${index + 1}`}>
         <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3"><h3 className="text-sm font-semibold">Document {String(index + 1).padStart(2, '0')}</h3><Button type="button" size="sm" variant="ghost" disabled={busy !== null} onClick={() => { setDrafts(drafts.filter((draft) => draft.id !== item.id)); setResult(null); setComplete(false); }}>Remove</Button></div>
         <fieldset disabled={busy === item.id} className="min-w-0 space-y-5 p-4 sm:p-6">
           <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Employer name or label" htmlFor={`employer-${item.id}`}><Input id={`employer-${item.id}`} value={item.employer} maxLength={120} autoComplete="off" onChange={(event) => change(item.id, { employer: event.target.value })} /></Field>
             <Field label="Document type" htmlFor={`kind-${item.id}`}><Select id={`kind-${item.id}`} value={item.kind} onChange={(event) => change(item.id, { kind: event.target.value as Draft['kind'] })}><option value="P9">Annual P9</option><option value="PAYSLIP">Monthly payslip</option></Select></Field>
+            <Field label="Employment start in 2025" htmlFor={`employment-start-${item.id}`} hint="Use 1 January if employed before 2025."><Input id={`employment-start-${item.id}`} type="date" min="2025-01-01" max="2025-12-31" value={item.employmentStart} onChange={(event) => change(item.id, { employmentStart: event.target.value })} /></Field>
+            <Field label="Employment end in 2025" htmlFor={`employment-end-${item.id}`} hint="Use 31 December if still employed at year end."><Input id={`employment-end-${item.id}`} type="date" min="2025-01-01" max="2025-12-31" value={item.employmentEnd} onChange={(event) => change(item.id, { employmentEnd: event.target.value })} /></Field>
             {item.kind === 'PAYSLIP' ? <Field label="Payslip month" htmlFor={`month-${item.id}`}><Input id={`month-${item.id}`} type="month" min="2025-01" max="2025-12" value={item.month} onChange={(event) => change(item.id, { month: event.target.value })} /></Field> : null}
           </div>
           <Field label="Read a PDF or image on this device (optional)" htmlFor={`file-${item.id}`}><input id={`file-${item.id}`} type="file" accept="application/pdf,image/png,image/jpeg" disabled={busy !== null} className="block w-full min-w-0 text-sm file:mr-3 file:border-0 file:bg-surface-2 file:px-3 file:py-2 file:text-heading" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void upload(item.id, file); }} /><p className="mt-2 text-xs text-muted">PDF, PNG or JPEG · 10 MB maximum. Scans use local OCR and may take a minute. Suggestions require your review; P9 tables may need manual entry.</p></Field>
@@ -120,7 +122,7 @@ export function TaxWorkspace() {
       </dl>
       {result.insuranceCapped ? <p className="text-sm text-muted">Insurance relief was limited to KSh 5,000 per payslip month and KSh 60,000 for the year. Confirm eligibility against the original documents.</p> : null}
       <details><summary className="cursor-pointer text-sm font-semibold">How the annual tax bands were applied</summary><ul className="mt-3 space-y-2 text-sm">{result.bands.filter((band) => band.amountMinor > 0).map((band) => <li key={band.rate}>{money(band.amountMinor)} at {band.rate}%</li>)}</ul></details>
-      <label className="flex items-start gap-3 text-sm"><input id="tax-complete" type="checkbox" checked={complete} onChange={(event) => setComplete(event.target.checked)} className="mt-1 h-4 w-4 shrink-0" /><span>I included all employers and all 2025 employment income, checked there is no overlap, and any months not represented had no employment income.</span></label>
+      <label className="flex items-start gap-3 text-sm"><input id="tax-complete" type="checkbox" checked={complete} onChange={(event) => setComplete(event.target.checked)} className="mt-1 h-4 w-4 shrink-0" /><span>I included all employers and all 2025 employment income without counting the same income twice. Any months not represented had no employment income; working for different employers at the same time is allowed.</span></label>
       <div className="flex flex-wrap items-center gap-4"><Button type="button" disabled={!complete} onClick={download}>Download reviewed worksheet</Button><a href="https://itax.kra.go.ke/" target="_blank" rel="noreferrer" className="text-sm font-semibold text-primary-700 dark:text-primary-300">Open KRA iTax ↗</a></div>
       <p className="text-xs text-muted">CSV worksheet for reference, not an iTax upload file. MoneyPilot does not sign in to KRA, submit returns, or request your PIN/password.</p>
     </section> : null}

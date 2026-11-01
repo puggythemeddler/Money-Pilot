@@ -1,6 +1,28 @@
 import { test, expect } from '@playwright/test';
 import { registerViaUI } from './helpers';
 
+test('employment dates support two employers and invalidate review when edited', async ({ page }) => {
+  await registerViaUI(page, 'Two Employers Tester');
+  await page.goto('/dashboard/tax');
+  await page.getByRole('button', { name: 'Add employer / payslip' }).click();
+  for (const [id, name, start, end] of [[1, 'First employer', '2025-01-01', '2025-06-30'], [2, 'Second employer', '2025-06-01', '2025-12-31']] as const) {
+    await page.locator(`#employer-${id}`).fill(name);
+    await page.locator(`#employment-start-${id}`).fill(start);
+    await page.locator(`#employment-end-${id}`).fill(end);
+    await page.locator(`#chargeable-${id}`).fill('500000');
+    await page.locator(`#paye-${id}`).fill('100000');
+    await page.locator(`#insurance-${id}`).fill('0');
+    await page.getByRole('article', { name: `Employment document ${id}` }).getByRole('checkbox').check();
+  }
+  await page.locator('#tax-scope-confirm').check();
+  await page.getByRole('button', { name: 'Calculate worksheet' }).click();
+  await expect(page.getByRole('heading', { name: 'Your 2025 worksheet' })).toBeVisible();
+  await expect(page.getByText(/KSh\s+8,600.00/, { exact: true })).toBeVisible();
+  await page.locator('#employment-end-1').fill('2025-05-31');
+  await expect(page.getByRole('heading', { name: 'Your 2025 worksheet' })).toHaveCount(0);
+  await expect(page.getByRole('article', { name: 'Employment document 1' }).getByRole('checkbox')).not.toBeChecked();
+});
+
 function samplePdf(lines: string[]) {
   const stream = lines.map((line, index) => `BT /F1 12 Tf 40 ${760 - index * 22} Td (${line.replace(/[\\()]/g, '\\$&')}) Tj ET`).join('\n');
   const objects = [
@@ -39,6 +61,8 @@ test('P9 PDF stays local, requires review, calculates and exports a checked work
   await expect(page.locator('#chargeable-1')).toHaveValue('1000000.00', { timeout: 30000 });
   await expect(page.locator('#paye-1')).toHaveValue('200000.00');
   await page.locator('#employer-1').fill('Example employer');
+  await page.locator('#employment-start-1').fill('2025-01-01');
+  await page.locator('#employment-end-1').fill('2025-12-31');
   await page.locator('#tax-scope-confirm').check();
   await page.getByRole('button', { name: 'Calculate worksheet' }).click();
   await expect(page.getByText(/Review every document/)).toBeVisible();
@@ -57,6 +81,7 @@ test('P9 PDF stays local, requires review, calculates and exports a checked work
   let csv = '';
   for await (const chunk of stream!) csv += chunk.toString();
   expect(csv).toContain('"P9","2025 annual"');
+  expect(csv).toContain('"2025-01-01","2025-12-31"');
   for (const width of [320, 390, 768, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

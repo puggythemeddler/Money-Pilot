@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { preferredCurrencySchema } from "./auth";
+import { validCalendarDate } from '../debt-interest';
 import {
   ACCOUNT_TYPE_LIST,
   CATEGORY_KIND_LIST,
@@ -199,7 +200,7 @@ export const monthPeriodSchema = z
 
 export type MonthPeriod = z.infer<typeof monthPeriodSchema>;
 
-/** A yearly-percentage interest rate, optional, up to 2 decimal places. */
+/** A percentage per chosen period, optional, up to 2 decimal places. */
 const interestRateSchema = z
   .string()
   .trim()
@@ -242,6 +243,10 @@ export const debtCreateSchema = z.object({
   principal: moneyInputSchema,
   currency: preferredCurrencySchema.default("KES"),
   interestRate: interestRateSchema.optional(),
+  interestMethod: z.enum(['NONE', 'INCLUDED', 'FLAT', 'REDUCING']).default('NONE'),
+  interestPeriod: z.enum(['ANNUAL', 'MONTHLY']).default('ANNUAL'),
+  startDate: z.string().refine(validCalendarDate, 'Choose a valid loan start date.').nullable().optional(),
+  termMonths: z.coerce.number().int().min(1).max(600).nullable().optional(),
   minimumPayment: moneyNonNegativeInputSchema.optional(),
   dueDay: z.coerce.number().int().min(1).max(31).optional(),
   categoryId: cuiOptional("Category"),
@@ -255,7 +260,11 @@ export const debtUpdateSchema = z.object({
   type: z.enum(DEBT_TYPE_LIST).optional(),
   institution: z.string().trim().max(60).optional(),
   principal: moneyInputSchema.optional(),
-  interestRate: interestRateSchema.optional(),
+  interestRate: interestRateSchema.nullable().optional(),
+  interestMethod: z.enum(['NONE', 'INCLUDED', 'FLAT', 'REDUCING']).optional(),
+  interestPeriod: z.enum(['ANNUAL', 'MONTHLY']).optional(),
+  startDate: z.string().refine(validCalendarDate, 'Choose a valid loan start date.').nullable().optional(),
+  termMonths: z.coerce.number().int().min(1).max(600).nullable().optional(),
   minimumPayment: moneyNonNegativeInputSchema.optional(),
   dueDay: z.coerce.number().int().min(1).max(31).optional(),
   categoryId: cuiOptional("Category"),

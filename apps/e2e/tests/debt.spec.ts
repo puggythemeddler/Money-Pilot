@@ -1,6 +1,63 @@
 import { test, expect } from "@playwright/test";
 import { createAccountViaApi, registerViaUI } from "./helpers";
 
+test('interest preview, saved debt, payments, dashboard and reports use the same total', async ({ page }) => {
+  test.setTimeout(120000);
+  await registerViaUI(page, 'Interest Tester');
+  const account = await createAccountViaApi(page, { name: 'Repayments', openingBalance: '200000' });
+  const legacyResponse = await page.request.post('/api/debts', { data: { name: 'Existing loan', principal: '1000', interestRate: '12' } });
+  expect(legacyResponse.status()).toBe(201);
+  expect((await page.request.post('/api/debts', { data: { name: 'Incomplete', principal: '1000', interestMethod: 'FLAT', interestRate: '12' } })).status()).toBe(400);
+  await page.goto('/dashboard/debts');
+  await page.locator('summary').filter({ hasText: 'Add debt' }).click();
+  await page.locator('#dt-name').fill('Calculated loan');
+  await page.locator('#dt-principal').fill('100000');
+  await page.locator('#dt-interest-method').selectOption('FLAT');
+  await page.locator('#dt-interest-rate').fill('12');
+  await page.locator('#dt-interest-start').fill('2025-01-31');
+  await page.locator('#dt-interest-term').fill('12');
+  await expect(page.getByRole('definition').filter({ hasText: /112,000/ })).toBeVisible();
+  await page.locator('#dt-interest-method').selectOption('REDUCING');
+  await expect(page.getByRole('definition').filter({ hasText: /8,884.88/ })).toBeVisible();
+  for (const theme of ['light', 'dark']) {
+    if ((await page.locator('html').getAttribute('class') ?? '').includes('dark') !== (theme === 'dark')) await page.getByRole('button', { name: 'Toggle dark mode' }).click();
+    for (const width of [390, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: test.info().outputPath(`interest-${theme}-${width}.png`), fullPage: true });
+    }
+  }
+  await page.locator('#dt-interest-method').selectOption('FLAT');
+  await page.getByRole('button', { name: 'Add debt', exact: true }).click();
+  await expect(page.getByRole('listitem').filter({ hasText: 'Calculated loan' })).toBeVisible();
+  let debts = (await (await page.request.get('/api/debts')).json()).data.debts;
+  const debt = debts.find((item: { name: string }) => item.name === 'Calculated loan');
+  expect(debt).toMatchObject({ interestMinor: 1200000, totalRepayableMinor: 11200000, balanceMinor: 11200000 });
+  expect(debts.find((item: { name: string }) => item.name === 'Existing loan')).toMatchObject({ interestMethod: 'NONE', balanceMinor: 100000 });
+  await page.getByRole('listitem').filter({ hasText: 'Calculated loan' }).getByRole('button', { name: 'Pay', exact: true }).click();
+  await expect(page.locator('#dt-pay-amount')).toHaveValue('9333.34');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect((await page.request.post('/api/transactions', { data: { kind: 'EXPENSE', accountId: account.id, debtId: debt.id, amount: '12000', transactionDate: '2025-02-28' } })).status()).toBe(201);
+  const dashboard = (await (await page.request.get('/api/dashboard')).json()).data;
+  expect(dashboard.debt.totalMinor).toBe(10100000);
+  const report = (await (await page.request.get('/api/reports?month=2025-02&currency=KES')).json()).data;
+  expect(report.debts.find((item: { id: string }) => item.id === debt.id)).toMatchObject({ totalRepayableMinor: 11200000, paidMinor: 1200000, balanceMinor: 10000000 });
+  // Explicitly switching to an already-inclusive total must not add interest twice.
+  expect((await page.request.patch(`/api/debts/${debt.id}`, { data: { principal: '112000', interestMethod: 'INCLUDED', interestRate: null, startDate: null, termMonths: null } })).status()).toBe(200);
+  debts = (await (await page.request.get('/api/debts')).json()).data.debts;
+  expect(debts.find((item: { id: string }) => item.id === debt.id)).toMatchObject({ interestMinor: 0, totalRepayableMinor: 11200000, balanceMinor: 10000000 });
+  await page.getByRole('listitem').filter({ hasText: 'Existing loan' }).getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.locator('#dt-edit-principal').fill('');
+  await page.locator('#dt-edit-principal').fill('1000');
+  await page.locator('#dt-edit-interest-method').selectOption('FLAT');
+  await page.locator('#dt-edit-interest-start').fill('2025-01-01');
+  await page.locator('#dt-edit-interest-term').fill('6');
+  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await expect(page.locator('#dt-edit-name')).toHaveCount(0);
+  debts = (await (await page.request.get('/api/debts')).json()).data.debts;
+  expect(debts.find((item: { name: string }) => item.name === 'Existing loan')).toMatchObject({ interestMethod: 'FLAT', totalRepayableMinor: 106000 });
+});
+
 test("paying a debt records a real payment to the named creditor", async ({ page }) => {
   await registerViaUI(page, "Debt Tester");
   const account = await createAccountViaApi(page, { name: "KCB Current", openingBalance: "50000" });

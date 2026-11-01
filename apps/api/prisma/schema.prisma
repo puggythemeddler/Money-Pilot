@@ -441,7 +441,11 @@ model Debt {
   institution         String?
   principalMinor      BigInt
   currency            String    @default("KES")
-  interestRate        String? // annual percentage as a decimal string, e.g. "13.5"
+  interestRate        String? // percentage per interestPeriod, e.g. "13.5"
+  interestMethod      String    @default("NONE") // NONE | INCLUDED | FLAT | REDUCING
+  interestPeriod      String    @default("ANNUAL") // ANNUAL | MONTHLY
+  startDate           String? // YYYY-MM-DD; original disbursement date
+  termMonths          Int?
   minimumPaymentMinor BigInt?
   dueDay              Int?
   categoryId          String? // Default category for expenses explicitly linked to this debt

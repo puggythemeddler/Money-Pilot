@@ -1,3 +1,4 @@
+import { validCalendarDate } from './debt-interest';
 /** 2025 resident employment-only worksheet. Values are KES cents. */
 export const KENYA_TAX_RULES = {
   year: 2025, version: 'KE-2025-employment-v1', personalReliefMinor: 2880000,
@@ -12,6 +13,8 @@ export interface KenyaTaxEntry {
   employer: string;
   kind: 'P9' | 'PAYSLIP';
   month?: string;
+  employmentStart: string;
+  employmentEnd: string;
   chargeableMinor: number;
   payeMinor: number;
   insuranceReliefMinor: number;
@@ -24,8 +27,10 @@ export function calculateKenyaEmploymentTax(year: number, entries: KenyaTaxEntry
   for (const entry of entries) {
     const employer = entry.employer.trim().replace(/\s+/g, ' ').toLowerCase();
     if (!employer) throw new Error('Identify the employer for each document.');
+    if (![entry.employmentStart, entry.employmentEnd].every((date) => validCalendarDate(date) && date.startsWith('2025-')) || entry.employmentStart > entry.employmentEnd) throw new Error('Enter employment dates within 2025, with the end on or after the start.');
     if (!['P9', 'PAYSLIP'].includes(entry.kind)) throw new Error('Choose P9 or payslip.');
     if (entry.kind === 'PAYSLIP' && !/^2025-(0[1-9]|1[0-2])$/.test(entry.month ?? '')) throw new Error('Choose a 2025 month for each payslip.');
+    if (entry.kind === 'PAYSLIP' && (entry.month! < entry.employmentStart.slice(0, 7) || entry.month! > entry.employmentEnd.slice(0, 7))) throw new Error('The payslip month must fall within the employment dates.');
     for (const amount of [entry.chargeableMinor, entry.payeMinor, entry.insuranceReliefMinor]) {
       if (!Number.isSafeInteger(amount) || amount < 0) throw new Error('Enter non-negative amounts with at most two decimal places.');
     }

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CURRENCIES, formatMoney, fromMinorUnits, parseMoneyToMinorUnits } from "@moneypilot/shared";
+import { CURRENCIES, formatMoney, fromMinorUnits, parseMoneyToMinorUnits, type DebtInterestTerms } from "@moneypilot/shared";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -11,7 +11,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ApiClientError, apiFetch } from "@/lib/api-client";
 import type { AccountOption, CategoryOption } from "./TransactionsManager";
 
-export interface DebtItem {
+import { DebtInterestFields } from "./DebtInterestFields";
+
+export interface DebtItem extends DebtInterestTerms {
   id: string;
   name: string;
   type: string;
@@ -27,6 +29,10 @@ export interface DebtItem {
   archived: boolean;
   paidMinor: number;
   balanceMinor: number;
+  interestMinor: number;
+  totalRepayableMinor: number;
+  projected: boolean;
+  monthlyPaymentMinor: number | null;
 }
 
 const typeLabels: Record<string, string> = {
@@ -35,6 +41,10 @@ const typeLabels: Record<string, string> = {
   MORTGAGE: "Mortgage",
   OTHER: "Other",
 };
+
+function previewPrincipal(value: string, currency: string): number | null {
+  try { return value.trim() ? parseMoneyToMinorUnits(value, currency) : null; } catch { return null; }
+}
 
 function todayISO(): string {
   const d = new Date();
@@ -57,7 +67,7 @@ export function DebtsManager({
   const [institution, setInstitution] = useState("");
   const [principal, setPrincipal] = useState("");
   const [currency, setCurrency] = useState("KES");
-  const [interestRate, setInterestRate] = useState("");
+  const [interest, setInterest] = useState<DebtInterestTerms>({ interestMethod: 'NONE', interestPeriod: 'ANNUAL', interestRate: '', startDate: null, termMonths: null });
   const [minimumPayment, setMinimumPayment] = useState("");
   const [dueDay, setDueDay] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -68,6 +78,7 @@ export function DebtsManager({
   const [busy, setBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editing, setEditing] = useState<DebtItem | null>(null);
+  const [editPrincipal, setEditPrincipal] = useState("");
   const [payTarget, setPayTarget] = useState<DebtItem | null>(null);
   const [payAccountId, setPayAccountId] = useState("");
   const [payAmount, setPayAmount] = useState("");
@@ -91,16 +102,16 @@ export function DebtsManager({
     setError(null);
     setSuccess(null);
     setBusy(true);
-    const body: Record<string, string> = {
+    const body: Record<string, unknown> = {
       name: name.trim(),
       type,
       principal: principal.trim(),
       currency,
+      ...interest, interestRate: interest.interestRate?.trim() || undefined,
     };
     if (institution.trim()) body.institution = institution.trim();
     if (categoryId) body.categoryId = categoryId;
     if (notes.trim()) body.notes = notes.trim();
-    if (interestRate.trim()) body.interestRate = interestRate.trim();
     if (minimumPayment.trim()) body.minimumPayment = minimumPayment.trim();
     if (dueDay) body.dueDay = dueDay;
     try {
@@ -108,7 +119,7 @@ export function DebtsManager({
       setName("");
       setInstitution("");
       setPrincipal("");
-      setInterestRate("");
+      setInterest({ interestMethod: 'NONE', interestPeriod: 'ANNUAL', interestRate: '', startDate: null, termMonths: null });
       setMinimumPayment("");
       setDueDay("");
       setCategoryId("");
@@ -128,13 +139,14 @@ export function DebtsManager({
     setError(null);
     setSuccess(null);
     setBusy(true);
-    const payload: Record<string, string> = {
-      principal: String(fromMinorUnits(editing.principalMinor, editing.currency)),
+    const payload: Record<string, unknown> = {
+      principal: editPrincipal.trim(),
+      interestMethod: editing.interestMethod ?? 'NONE', interestPeriod: editing.interestPeriod ?? 'ANNUAL',
+      interestRate: editing.interestRate?.trim() || null, startDate: editing.startDate ?? null, termMonths: editing.termMonths ?? null,
     };
     if (editing.name.trim()) payload.name = editing.name.trim();
     if (editing.type) payload.type = editing.type;
     if (editing.institution?.trim()) payload.institution = editing.institution.trim();
-    if (editing.interestRate?.trim()) payload.interestRate = editing.interestRate.trim();
     if (editing.minimumPaymentMinor !== null && editing.minimumPaymentMinor > 0) {
       payload.minimumPayment = String(fromMinorUnits(editing.minimumPaymentMinor, editing.currency));
     }
@@ -159,7 +171,7 @@ export function DebtsManager({
     setSuccess(null);
     setPayTarget(d);
     setPayAccountId(accounts.find((a) => a.currency === d.currency)?.id ?? accounts[0]?.id ?? "");
-    const suggested = d.balanceMinor > 0 ? d.balanceMinor : d.minimumPaymentMinor ?? 0;
+    const suggested = d.projected ? Math.min(Math.max(0, d.balanceMinor), d.minimumPaymentMinor ?? d.monthlyPaymentMinor ?? 0) : d.balanceMinor > 0 ? d.balanceMinor : d.minimumPaymentMinor ?? 0;
     setPayAmount(suggested > 0 ? String(fromMinorUnits(suggested, d.currency)) : "");
     setPayCategoryId(d.categoryId ?? "");
     setPayDate(todayISO());
@@ -254,7 +266,7 @@ export function DebtsManager({
             <Field label="Institution" htmlFor="dt-institution">
               <Input id="dt-institution" value={institution} onChange={(e) => setInstitution(e.target.value)} placeholder="Optional" />
             </Field>
-            <Field label="Principal owed" htmlFor="dt-principal">
+            <Field label="Principal / entered amount" htmlFor="dt-principal">
               <Input id="dt-principal" value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="0.00" inputMode="decimal" required />
             </Field>
             <Field label="Currency" htmlFor="dt-currency">
@@ -266,9 +278,7 @@ export function DebtsManager({
                 ))}
               </Select>
             </Field>
-            <Field label="Annual interest (%)" htmlFor="dt-interest">
-              <Input id="dt-interest" value={interestRate} onChange={(e) => setInterestRate(e.target.value)} placeholder="e.g. 13.5" inputMode="decimal" />
-            </Field>
+            <DebtInterestFields id="dt-interest" value={interest} onChange={(patch) => setInterest({ ...interest, ...patch })} principalMinor={previewPrincipal(principal, currency)} currency={currency} />
             <Field label="Min. payment" htmlFor="dt-minimum">
               <Input id="dt-minimum" value={minimumPayment} onChange={(e) => setMinimumPayment(e.target.value)} placeholder="Optional" inputMode="decimal" />
             </Field>
@@ -306,11 +316,11 @@ export function DebtsManager({
               <Field label="Name" htmlFor="dt-edit-name">
                 <Input ref={editNameInput} id="dt-edit-name" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
               </Field>
-              <Field label="Principal owed" htmlFor="dt-edit-principal">
+              <Field label="Principal / entered amount" htmlFor="dt-edit-principal">
                 <Input
                   id="dt-edit-principal"
-                  value={String(fromMinorUnits(editing.principalMinor, editing.currency))}
-                  onChange={(e) => setEditing({ ...editing, principalMinor: parseMoneyToMinorUnits(e.target.value, editing.currency) })}
+                  value={editPrincipal}
+                  onChange={(e) => setEditPrincipal(e.target.value)}
                   inputMode="decimal"
                   required
                 />
@@ -318,9 +328,7 @@ export function DebtsManager({
               <Field label="Institution" htmlFor="dt-edit-institution">
                 <Input id="dt-edit-institution" value={editing.institution ?? ""} onChange={(e) => setEditing({ ...editing, institution: e.target.value })} />
               </Field>
-              <Field label="Interest (%)" htmlFor="dt-edit-interest">
-                <Input id="dt-edit-interest" value={editing.interestRate ?? ""} onChange={(e) => setEditing({ ...editing, interestRate: e.target.value })} />
-              </Field>
+              <DebtInterestFields id="dt-edit-interest" value={editing} onChange={(patch) => setEditing({ ...editing, ...patch })} principalMinor={previewPrincipal(editPrincipal, editing.currency)} currency={editing.currency} />
               <Field label="Min. payment" htmlFor="dt-edit-minimum">
                 <Input
                   id="dt-edit-minimum"
@@ -450,7 +458,7 @@ export function DebtsManager({
           ) : (
             <ul className="divide-y divide-line">
               {debts.map((d) => {
-                const remainingPct = d.principalMinor > 0 ? Math.max(0, Math.min(100, (d.balanceMinor / d.principalMinor) * 100)) : 0;
+                const remainingPct = d.principalMinor > 0 ? Math.max(0, Math.min(100, (d.balanceMinor / (d.totalRepayableMinor ?? d.principalMinor)) * 100)) : 0;
                 return (
                   <li key={d.id} className="px-4 py-3">
                     <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -463,7 +471,9 @@ export function DebtsManager({
                           {d.institution ? <span className="font-normal text-faint"> · {d.institution}</span> : null}
                         </p>
                         <p className="mt-0.5 text-xs text-faint">
-                          {d.interestRate ? <span>{d.interestRate}% annual · </span> : null}
+                          {d.interestRate ? <span>{d.interestRate}% {d.interestPeriod === 'MONTHLY' ? 'monthly' : 'annual'} · </span> : null}
+                          {d.projected ? <span>{d.interestMethod === 'FLAT' ? 'flat' : 'reducing balance'} · {d.termMonths} months from {d.startDate} · </span> : null}
+                          {d.interestMethod === 'INCLUDED' ? <span>interest included in entered amount · </span> : null}
                           {d.dueDay ? <span>due day {d.dueDay} · </span> : null}
                           {d.categoryName ? <span>category: {d.categoryName}</span> : <span>no payments category</span>}
                         </p>
@@ -472,7 +482,7 @@ export function DebtsManager({
                         <p className="break-words text-sm font-semibold tabular-nums text-heading xl:text-right">
                           {formatMoney(Math.max(0, d.balanceMinor), d.currency)}
                           <span className="block text-xs font-normal text-faint">
-                            paid {formatMoney(d.paidMinor, d.currency)} of {formatMoney(d.principalMinor, d.currency)}
+                            paid {formatMoney(d.paidMinor, d.currency)} of {formatMoney(d.totalRepayableMinor ?? d.principalMinor, d.currency)}
                           </span>
                         </p>
                         <div className="flex flex-wrap items-center gap-2">
@@ -481,7 +491,7 @@ export function DebtsManager({
                             Pay
                           </Button>
                         ) : null}
-                        <Button variant="ghost" size="sm" onClick={() => { setPayTarget(null); setEditing(d); }}>
+                        <Button variant="ghost" size="sm" onClick={() => { setPayTarget(null); setEditPrincipal(String(fromMinorUnits(d.principalMinor, d.currency))); setEditing(d); }}>
                           Edit
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => archive(d.id)} disabled={busyId !== null} loading={busyId === d.id}>
@@ -490,6 +500,7 @@ export function DebtsManager({
                         </div>
                       </div>
                     </div>
+                    {d.projected ? <p className="mt-2 text-xs text-muted">Principal {formatMoney(d.principalMinor, d.currency)} · full-term interest estimate {formatMoney(d.interestMinor, d.currency)}. Remaining balance includes future scheduled interest, not a settlement quote.</p> : null}
                     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
                       <div className="h-full rounded-full bg-heading" style={{ width: `${remainingPct}%` }} />
                     </div>
@@ -502,7 +513,7 @@ export function DebtsManager({
       </Card>
 
       <p className="text-sm text-muted">
-        Debts are tracked, not traded: your remaining balance is principal minus what you&apos;ve paid. Use{" "}
+        Remaining balance is the entered amount plus any configured full-term interest estimate, minus recorded payments. Interest estimates exclude fees and early-settlement adjustments. Use{" "}
         <span className="font-medium text-body">Pay</span> to record a payment — it creates a real expense named after
         the creditor on the account you choose, and counts only against that debt. Older category-only expenses can be assigned from Transactions.
       </p>

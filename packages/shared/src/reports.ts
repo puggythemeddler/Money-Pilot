@@ -4,7 +4,7 @@ export interface FinanceReport {
   totals: { incomeMinor: number; expenseMinor: number; netMinor: number };
   trend: { month: string; incomeMinor: number; expenseMinor: number; netMinor: number }[];
   categories: { id: string | null; name: string; color: string; amountMinor: number }[];
-  debts: { id: string; name: string; principalMinor: number; paidMinor: number; balanceMinor: number }[];
+  debts: { id: string; name: string; principalMinor: number; paidMinor: number; balanceMinor: number; totalRepayableMinor?: number; projected?: boolean }[];
 }
 
 export function currentReportMonth(timezone: string, now = new Date()): string {

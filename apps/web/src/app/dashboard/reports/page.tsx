@@ -63,12 +63,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           })}</ul> : <p className="text-sm text-muted">No expenses recorded in {currency} for this month.</p>}
         </CardContent></Card>
         <Card><CardHeader><CardTitle>Debt repayment progress</CardTitle><CardDescription>Current active debts in {currency} · all-time linked payments</CardDescription></CardHeader><CardContent>
-          <p className="mb-4 text-xs text-muted">This is your current position, independent of the month filter. Balances use principal minus recorded payments; interest is not projected.</p>
+          <p className="mb-4 text-xs text-muted">This is your current position, independent of the month filter. Balances use the entered amount plus any configured full-term interest estimate, minus recorded payments. Estimates exclude fees and early-settlement adjustments.</p>
           {report.debts.length ? <ul className="space-y-5">{report.debts.map((debt) => <li key={debt.id}>
             <p className="break-words text-sm font-semibold">{debt.name}</p>
-            <p className="mt-1 text-sm tabular-nums">{formatMoney(debt.balanceMinor, currency)} remaining</p>
-            <p className="mt-1 text-xs text-muted">Paid {formatMoney(debt.paidMinor, currency)} of {formatMoney(debt.principalMinor, currency)}</p>
-            <progress aria-label={`${debt.name} repayment progress`} max={Math.max(1, debt.principalMinor)} value={Math.max(0, Math.min(debt.principalMinor, debt.paidMinor))} className="mt-2 h-2 w-full accent-primary-700" />
+            <p className="mt-1 text-sm tabular-nums">{formatMoney(debt.balanceMinor, currency)} {debt.projected ? 'estimated remaining' : 'remaining'}</p>
+            <p className="mt-1 text-xs text-muted">Paid {formatMoney(debt.paidMinor, currency)} of {formatMoney((debt.totalRepayableMinor ?? debt.principalMinor), currency)}</p>
+            <progress aria-label={`${debt.name} repayment progress`} max={Math.max(1, (debt.totalRepayableMinor ?? debt.principalMinor))} value={Math.max(0, Math.min((debt.totalRepayableMinor ?? debt.principalMinor), debt.paidMinor))} className="mt-2 h-2 w-full accent-primary-700" />
           </li>)}</ul> : <p className="text-sm text-muted">No active debts tracked in {currency}.</p>}
           <Link href="/dashboard/debts" className="mt-4 inline-block text-sm font-semibold text-primary-700 dark:text-primary-300">Manage debts →</Link>
         </CardContent></Card>

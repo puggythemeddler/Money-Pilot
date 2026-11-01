@@ -50,6 +50,11 @@ cannot be reliably detected; the user must confirm there is no overlapping
 income. Export requires confirmation of complete annual employment coverage.
 Partial documents are never multiplied to estimate a full year.
 
+Each entry records employment start/end dates within 2025. Use 1 January or
+31 December where employment extends beyond that year. Dates may overlap across
+different employers; payslip months must fall within their employment period.
+Changing dates invalidates the review and export. CSV worksheets include dates.
+
 Tests cover statutory band boundaries, relief limits, duplicate coverage,
 parsing ambiguity, local PDF extraction, actual image OCR, no upload requests,
 same-origin reader assets, review/export gates and mobile layouts.

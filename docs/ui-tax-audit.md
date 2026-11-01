@@ -43,6 +43,12 @@ Amounts, not decorative cards, carry the resulting worksheet's hierarchy.
 
 ## Release boundaries
 
+Follow-up: employer dates sit beside employer and document type, with date fields
+stacking on mobile. Debt interest settings form a single section with an immediate
+three-figure preview: interest, total, and monthly instalment. Keep existing colors
+and type, and distinguish full-term estimates from entered lender balances in all
+debt views. Legacy debts are not opted in by a stored reference percentage.
+
 2025, full-year Kenyan residents, ordinary employment income only. Chargeable
 pay is supplied from reviewed employer documents after deductions. Eligibility
 and deductions are not independently established from gross pay. No direct

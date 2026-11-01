@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { calculateKenyaEmploymentTax, suggestTaxFigures, type KenyaTaxEntry } from '../src/kenya-tax';
 
-const entry = (chargeable: number, patch: Partial<KenyaTaxEntry> = {}): KenyaTaxEntry => ({ employer: 'Example employer', kind: 'P9', chargeableMinor: chargeable * 100, payeMinor: 0, insuranceReliefMinor: 0, ...patch });
+const entry = (chargeable: number, patch: Partial<KenyaTaxEntry> = {}): KenyaTaxEntry => ({ employer: 'Example employer', kind: 'P9', employmentStart: '2025-01-01', employmentEnd: '2025-12-31', chargeableMinor: chargeable * 100, payeMinor: 0, insuranceReliefMinor: 0, ...patch });
 describe('Kenya 2025 annual resident employment worksheet', () => {
+  it('accepts job changes and overlapping employers without annualising earnings', () => {
+    const result = calculateKenyaEmploymentTax(2025, [entry(500000, { employer: 'First', employmentEnd: '2025-06-30' }), entry(500000, { employer: 'Second', employmentStart: '2025-06-01' })]);
+    expect(result.chargeableMinor).toBe(100000000);
+    expect(result.personalReliefMinor).toBe(2880000);
+    expect(result.taxAfterReliefMinor).toBe(20860000);
+  });
+  it('rejects reversed, invalid, out-of-year employment dates and payslips outside employment', () => {
+    for (const patch of [{ employmentStart: '' }, { employmentStart: '2025-02-30' }, { employmentEnd: '2026-01-01' }, { employmentStart: '2025-08-01', employmentEnd: '2025-07-31' }, { kind: 'PAYSLIP' as const, month: '2025-02', employmentStart: '2025-03-01' }]) {
+      expect(() => calculateKenyaEmploymentTax(2025, [entry(100, patch)])).toThrow();
+    }
+  });
   it('uses annual band boundaries and the 32.5% / 35% upper bands', () => {
     for (const [income, tax] of [[288000, 28800], [388000, 53800], [1000000, 237400], [6000000, 1737400], [9600000, 2907400], [10000000, 3047400]]) {
       expect(calculateKenyaEmploymentTax(2025, [entry(income!)]).taxBeforeReliefMinor).toBe(tax! * 100);

@@ -1,5 +1,6 @@
 import {
   AppError,
+  calculateDebtInterest,
   ErrorCodes,
   debtCreateSchema,
   debtUpdateSchema,
@@ -23,6 +24,14 @@ export interface DebtItem {
   principalMinor: number;
   currency: string;
   interestRate: string | null;
+  interestMethod: string;
+  interestPeriod: string;
+  startDate: string | null;
+  termMonths: number | null;
+  interestMinor: number;
+  totalRepayableMinor: number;
+  monthlyPaymentMinor: number | null;
+  projected: boolean;
   minimumPaymentMinor: number | null;
   dueDay: number | null;
   categoryId: string | null;
@@ -31,7 +40,7 @@ export interface DebtItem {
   archived: boolean;
   /** Sum of expenses explicitly linked to this debt, derived. */
   paidMinor: number;
-  /** principal − paid. */
+  /** Entered amount + configured full-term interest estimate − paid. */
   balanceMinor: number;
 }
 
@@ -63,6 +72,7 @@ export async function listDebts(userId: string, includeArchived = false) {
   return rows.map((d): DebtItem => {
     const principalMinor = minorToNumber(d.principalMinor);
     const paidMinor = paidByKey.get(`${d.id}::${d.currency}`) ?? 0;
+    const estimate = calculateDebtInterest(principalMinor, d);
     return {
       id: d.id,
       name: d.name,
@@ -71,6 +81,11 @@ export async function listDebts(userId: string, includeArchived = false) {
       principalMinor,
       currency: d.currency,
       interestRate: d.interestRate,
+      interestMethod: d.interestMethod,
+      interestPeriod: d.interestPeriod,
+      startDate: d.startDate,
+      termMonths: d.termMonths,
+      ...estimate,
       minimumPaymentMinor: d.minimumPaymentMinor !== null ? minorToNumber(d.minimumPaymentMinor) : null,
       dueDay: d.dueDay,
       categoryId: d.categoryId,
@@ -78,7 +93,7 @@ export async function listDebts(userId: string, includeArchived = false) {
       notes: d.notes,
       archived: d.archivedAt !== null,
       paidMinor,
-      balanceMinor: principalMinor - paidMinor,
+      balanceMinor: estimate.totalRepayableMinor - paidMinor,
     };
   });
 }
@@ -92,6 +107,7 @@ export interface DebtOverviewItem {
 }
 
 export interface DebtOverview {
+  hasProjectedInterest: boolean;
   count: number;
   unallocatedCount: number;
   currency: string;
@@ -105,7 +121,7 @@ export interface DebtOverview {
  * preferred currency plus any other-currency totals listed separately, so the
  * headline is never a dishonest cross-currency sum. Each balance is clamped at
  * zero — an overpaid debt owes nothing. Built on listDebts so the
- * principal−paid rule lives in exactly one place.
+ * repayment calculation lives in exactly one place.
  */
 export async function debtOverview(userId: string, preferredCurrency: string): Promise<DebtOverview> {
   const debts = await listDebts(userId);
@@ -127,7 +143,7 @@ export async function debtOverview(userId: string, preferredCurrency: string): P
     .map(([currency, otherTotal]) => ({ currency, totalMinor: otherTotal }))
     .sort((a, b) => b.totalMinor - a.totalMinor);
 
-  return { count: items.length, unallocatedCount, currency: preferredCurrency, totalMinor, others, items };
+  return { hasProjectedInterest: debts.some((debt) => debt.projected && debt.balanceMinor > 0), count: items.length, unallocatedCount, currency: preferredCurrency, totalMinor, others, items };
 }
 
 async function validateCategory(userId: string, categoryId: string) {
@@ -152,6 +168,8 @@ export async function createDebt(
 ) {
   const category = input.categoryId ? await validateCategory(userId, input.categoryId) : null;
   const principalMinor = parseMoneyInputToMinorUnits(input.principal, input.currency);
+  try { calculateDebtInterest(principalMinor, { ...input, interestRate: input.interestRate ?? null, startDate: input.startDate ?? null, termMonths: input.termMonths ?? null }); }
+  catch (error) { throw new AppError(ErrorCodes.VALIDATION, (error as Error).message, 400); }
   const debt = await prisma.debt.create({
     data: {
       userId,
@@ -161,6 +179,10 @@ export async function createDebt(
       principalMinor,
       currency: input.currency,
       interestRate: input.interestRate ?? null,
+      interestMethod: input.interestMethod,
+      interestPeriod: input.interestPeriod,
+      startDate: input.startDate ?? null,
+      termMonths: input.termMonths ?? null,
       minimumPaymentMinor:
         input.minimumPayment !== undefined
           ? parseMoneyInputToMinorUnits(input.minimumPayment, input.currency, { allowZero: true })
@@ -205,6 +227,10 @@ export async function updateDebt(
     institution?: string | null;
     principalMinor?: number;
     interestRate?: string | null;
+    interestMethod?: string;
+    interestPeriod?: string;
+    startDate?: string | null;
+    termMonths?: number | null;
     minimumPaymentMinor?: number | null;
     dueDay?: number | null;
     categoryId?: string | null;
@@ -216,6 +242,12 @@ export async function updateDebt(
   if (input.institution !== undefined) data.institution = input.institution ?? null;
   if (input.principal !== undefined) data.principalMinor = parseMoneyInputToMinorUnits(input.principal, existing.currency);
   if (input.interestRate !== undefined) data.interestRate = input.interestRate ?? null;
+  if (input.interestMethod !== undefined) data.interestMethod = input.interestMethod;
+  if (input.interestPeriod !== undefined) data.interestPeriod = input.interestPeriod;
+  if (input.startDate !== undefined) data.startDate = input.startDate;
+  if (input.termMonths !== undefined) data.termMonths = input.termMonths;
+  try { calculateDebtInterest(data.principalMinor ?? minorToNumber(existing.principalMinor), { ...existing, ...data }); }
+  catch (error) { throw new AppError(ErrorCodes.VALIDATION, (error as Error).message, 400); }
   if (input.minimumPayment !== undefined) {
     data.minimumPaymentMinor =
       input.minimumPayment !== null && input.minimumPayment !== ""

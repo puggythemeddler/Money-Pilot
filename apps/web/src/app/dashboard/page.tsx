@@ -16,6 +16,7 @@ interface DashboardSummary {
   household: { name: string } | null;
   accounts: { id: string; name: string; currency: string; balanceMinor: number }[];
   debt: {
+    hasProjectedInterest: boolean;
     count: number;
     unallocatedCount: number;
     currency: string;
@@ -156,6 +157,7 @@ export default async function DashboardPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted">Total debt</p>
+              {summary.debt.hasProjectedInterest ? <p className="text-xs text-muted">Includes configured full-term interest estimates.</p> : null}
               <p className="text-2xl font-bold tabular-nums text-heading">
                 {formatMoney(summary.debt.totalMinor, summary.debt.currency)}
               </p>
