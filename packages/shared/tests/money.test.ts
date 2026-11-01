@@ -155,6 +155,14 @@ describe("currency registry", () => {
 });
 
 describe("parseMoneyToMinorUnits", () => {
+  it('rounds fractional minor units once, including scientific notation and signs', () => {
+    for (const [value, expected] of [['5e-3', 1], ['9e-3', 1], ['9e-4', 0], ['9e-5', 0], ['-5e-3', -1], ['-9e-4', 0], ['0.009', 1], ['0.004999', 0]] as const) {
+      expect(parseMoneyToMinorUnits(value, 'KES')).toBe(expected);
+    }
+    expect(parseMoneyToMinorUnits('5e-1', 'UGX')).toBe(1);
+    expect(parseMoneyToMinorUnits('9e-2', 'UGX')).toBe(0);
+    expect(parseMoneyToMinorUnits('5e-4', 'TND')).toBe(1);
+  });
   it("parses decimal strings exactly with no float drift", () => {
     expect(parseMoneyToMinorUnits("0.07", "KES")).toBe(7);
     expect(parseMoneyToMinorUnits("100.50", "KES")).toBe(10050);
@@ -308,6 +316,10 @@ describe("convertMinorUnitsWithRate", () => {
 });
 
 describe("minorToNumber", () => {
+  it('rejects unsafe database aggregates instead of losing monetary precision', () => {
+    expect(() => minorToNumber(BigInt(Number.MAX_SAFE_INTEGER) + 1n)).toThrow(RangeError);
+    expect(() => minorToNumber(-BigInt(Number.MAX_SAFE_INTEGER) - 1n)).toThrow(RangeError);
+  });
   it("passes numbers through and converts BigInt", () => {
     expect(minorToNumber(5)).toBe(5);
     expect(minorToNumber(0n)).toBe(0);

@@ -265,7 +265,7 @@ export const debtUpdateSchema = z.object({
   interestPeriod: z.enum(['ANNUAL', 'MONTHLY']).optional(),
   startDate: z.string().refine(validCalendarDate, 'Choose a valid loan start date.').nullable().optional(),
   termMonths: z.coerce.number().int().min(1).max(600).nullable().optional(),
-  minimumPayment: moneyNonNegativeInputSchema.optional(),
+  minimumPayment: moneyNonNegativeInputSchema.nullable().optional(),
   dueDay: z.coerce.number().int().min(1).max(31).optional(),
   categoryId: cuiOptional("Category"),
   notes: z.string().trim().max(500).optional(),

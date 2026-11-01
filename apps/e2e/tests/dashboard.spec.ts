@@ -1,6 +1,26 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createAccountViaApi, isoDay, registerViaUI } from "./helpers";
 
+test('dashboard summaries never mix currencies and match the selected-currency report', async ({ page }) => {
+  await registerViaUI(page, 'Currency Audit');
+  const kes = await createAccountViaApi(page, { name: 'KES wallet', openingBalance: '1000' });
+  const usd = await createAccountViaApi(page, { name: 'USD wallet', currency: 'USD', openingBalance: '9000' });
+  for (const [accountId, amount, kind] of [[kes.id, '100', 'INCOME'], [kes.id, '20', 'EXPENSE'], [usd.id, '500', 'INCOME'], [usd.id, '50', 'EXPENSE']]) {
+    expect((await page.request.post('/api/transactions', { data: { accountId, amount, kind, transactionDate: isoDay() } })).status()).toBe(201);
+  }
+  const summary = (await (await page.request.get('/api/dashboard')).json()).data;
+  expect(summary.availableMinor).toBe(108000);
+  expect(summary.month).toMatchObject({ incomeMinor: 10000, expenseMinor: 2000, netMinor: 8000 });
+  expect(summary.allTime).toMatchObject({ incomeMinor: 10000, expenseMinor: 2000 });
+  expect(summary.categorySpending.reduce((sum: number, item: { amountMinor: number }) => sum + item.amountMinor, 0)).toBe(2000);
+  const report = (await (await page.request.get(`/api/reports?month=${isoDay().slice(0, 7)}&currency=KES`)).json()).data;
+  expect(summary.month).toMatchObject(report.totals);
+  await page.goto('/dashboard');
+  await expect(cardValue(page, 'Money in accounts')).toHaveText(/1,080\.00/);
+  await expect(page.getByText(/Summary totals are in KES only/)).toBeVisible();
+  await expect(page.getByRole('listitem').getByText('USD wallet', { exact: true })).toBeVisible();
+});
+
 /** Reads the money value displayed next to a dashboard card label. */
 function cardValue(page: Page, label: string) {
   return page.getByText(label, { exact: true }).locator("xpath=following-sibling::*[1]");
@@ -57,7 +77,7 @@ test("the dashboard aggregates balances, cash flow and recent activity", async (
   await expect(page.getByRole("listitem").getByText("Food and drinks", { exact: true }).first()).toBeVisible();
 
   // Recent activity lists the latest records across accounts.
-  await expect(page.getByText("Recent activity")).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recent activity', exact: true })).toBeVisible();
   await expect(page.getByText("Consulting fee")).toBeVisible();
   await expect(page.getByText("Team lunch")).toBeVisible();
   await expect(page.getByText("Airtime top-up")).toBeVisible();

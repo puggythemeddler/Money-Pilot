@@ -60,7 +60,7 @@ export default async function DashboardPage() {
   const capabilities = await getServerCapabilities();
   const firstName = auth.user.name.split(" ")[0] ?? auth.user.name;
   const currency = auth.user.preferredCurrency;
-  const hasTransactions = summary.allTime.incomeMinor !== 0 || summary.allTime.expenseMinor !== 0;
+  const hasTransactions = summary.recentTransactions.length > 0;
 
   const monthNet = summary.month.netMinor;
   const monthNetClass = monthNet < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400";
@@ -93,6 +93,7 @@ export default async function DashboardPage() {
         )
       ) : null}
 
+      <p className="text-xs text-muted">Summary totals are in {currency} only. Other currencies appear separately in your accounts and recent activity; no conversion is applied.</p>
       <GetStarted
         accounts={summary.accounts}
         currency={currency}

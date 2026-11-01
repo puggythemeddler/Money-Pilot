@@ -21,7 +21,9 @@ export const MAX_SAFE_MINOR_UNITS = Number.MAX_SAFE_INTEGER;
  * columns; data sources that already hold numbers pass through unchanged.
  */
 export function minorToNumber(value: number | bigint): number {
-  return typeof value === "bigint" ? Number(value) : value;
+  const result = typeof value === "bigint" ? Number(value) : value;
+  if (!Number.isSafeInteger(result)) throw new RangeError('Minor units exceeded the safe integer range.');
+  return result;
 }
 
 /** Converts a decimal amount to minor units (e.g. 12.34 -> 1234). */
@@ -94,18 +96,16 @@ export function parseMoneyToMinorUnits(input: string | number, currencyCode: str
   } else {
     const cut = -totalExp; // decimal digits to drop
     if (cut >= d.length) {
-      // The whole amount is a fractional minor unit: round to 0 or 1.
-      const allNine = [...d].every((c) => c === "9");
-      roundUp = allNine || Number(d[0] ?? "0") >= 5;
-      minorDigits = roundUp ? "1" : "0";
+      // A shorter coefficient has leading fractional zeroes, so is below half.
+      roundUp = cut === d.length && Number(d[0] ?? "0") >= 5;
+      minorDigits = "0";
     } else {
       const keep = d.slice(0, d.length - cut);
       const dropped = d.slice(d.length - cut);
       const first = Number(dropped[0] ?? "0");
-      const allNine = [...dropped].every((c) => c === "9");
       // Half-up rounding on the exact decimal fraction (matches Math.round
       // semantics for a clean decimal; e.g. 1.005 -> 101 minor).
-      roundUp = first >= 5 || allNine;
+      roundUp = first >= 5;
       minorDigits = keep;
     }
   }

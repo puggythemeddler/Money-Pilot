@@ -1,4 +1,4 @@
-import type { LabelHTMLAttributes, ReactNode } from "react";
+import { Children, cloneElement, isValidElement, type LabelHTMLAttributes, type ReactNode, type AriaAttributes } from "react";
 import { cn } from "@/lib/cn";
 
 export function Label({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
@@ -20,16 +20,25 @@ export interface FieldProps {
 
 /** Labeled form field with optional hint and validation error text. */
 export function Field({ label, htmlFor, hint, error, children }: FieldProps) {
+  const descriptionId = error ? `${htmlFor}-error` : hint ? `${htmlFor}-hint` : undefined;
+  const associate = (nodes: ReactNode): ReactNode => Children.map(nodes, (node) => {
+    if (!isValidElement<{ id?: string; children?: ReactNode } & AriaAttributes>(node)) return node;
+    if (node.props.id === htmlFor) {
+      const descriptions = [...new Set([node.props['aria-describedby'], descriptionId].filter(Boolean).flatMap((value) => value!.split(/\s+/)))].join(' ');
+      return cloneElement(node, { 'aria-describedby': descriptions || undefined, 'aria-invalid': error ? true : node.props['aria-invalid'] });
+    }
+    return node.props.children ? cloneElement(node, { children: associate(node.props.children) }) : node;
+  });
   return (
     <div>
       <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
+      {associate(children)}
       {error ? (
         <p id={`${htmlFor}-error`} className="mt-1.5 text-sm font-medium text-red-600 dark:text-red-400" role="alert">
           {error}
         </p>
       ) : hint ? (
-        <p className="mt-1.5 text-sm text-muted">{hint}</p>
+        <p id={`${htmlFor}-hint`} className="mt-1.5 text-sm text-muted">{hint}</p>
       ) : null}
     </div>
   );

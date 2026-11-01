@@ -4,6 +4,11 @@ import { createAccountViaApi, registerViaUI } from './helpers';
 test('light and dark themes remain readable and fit desktop and mobile', async ({ page }) => {
   test.setTimeout(120000);
   await registerViaUI(page, 'Theme Reviewer');
+  await page.goto('/dashboard');
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('link', { name: 'Skip to main content' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#dashboard-main')).toBeFocused();
   const account = await createAccountViaApi(page, { name: 'Everyday account', openingBalance: '50000' });
   expect((await page.request.post('/api/transactions', { data: { kind: 'INCOME', accountId: account.id, amount: '85000', transactionDate: '2025-11-01', description: 'Salary' } })).status()).toBe(201);
   expect((await page.request.post('/api/transactions', { data: { kind: 'EXPENSE', accountId: account.id, amount: '12500', transactionDate: '2025-11-02', description: 'Household shopping and transport' } })).status()).toBe(201);
@@ -19,6 +24,8 @@ test('light and dark themes remain readable and fit desktop and mobile', async (
       await page.goto('/' + route);
       expect((await page.locator('html').getAttribute('class') ?? '').includes('dark')).toBe(theme === 'dark');
       if (route === 'dashboard/tax') {
+        await expect(page.locator('#chargeable-1')).toHaveAttribute('aria-describedby', 'chargeable-1-hint');
+        await expect(page.locator('#chargeable-1')).toHaveAccessibleDescription(/after allowable deductions/);
         await page.locator('#employer-1').fill('Example employer');
   await page.locator('#employment-start-1').fill('2025-01-01');
   await page.locator('#employment-end-1').fill('2025-12-31');
@@ -52,6 +59,20 @@ test('light and dark themes remain readable and fit desktop and mobile', async (
           return Math.min(...ratios);
         });
         expect(contrast).toBeGreaterThanOrEqual(4.5);
+        if (route === 'dashboard/tax') {
+          const fieldContrast = await page.locator('#chargeable-1').evaluate((field) => {
+            const style = getComputedStyle(field);
+            const context = document.createElement('canvas').getContext('2d')!;
+            const lum = (color: string) => {
+              context.fillStyle = color; context.fillRect(0, 0, 1, 1);
+              const rgb = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3).map((value) => value / 255).map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+              return rgb[0]! * 0.2126 + rgb[1]! * 0.7152 + rgb[2]! * 0.0722;
+            };
+            const values = [lum(style.borderTopColor), lum(style.backgroundColor)].sort((a, b) => b - a);
+            return (values[0]! + 0.05) / (values[1]! + 0.05);
+          });
+          expect(fieldContrast).toBeGreaterThanOrEqual(3);
+        }
         await page.evaluate(() => window.scrollTo(0, 0));
         await page.screenshot({ path: test.info().outputPath(`${theme}-${pageName}-${width}.png`), fullPage: true });
         if (route === 'dashboard/tax' && width === 1280) await page.screenshot({ path: test.info().outputPath(`${theme}-tax-preview.png`) });
@@ -62,5 +83,11 @@ test('light and dark themes remain readable and fit desktop and mobile', async (
     await expect(page.getByRole('navigation', { name: 'All mobile pages' }).getByRole('link', { name: 'Tax preparation' })).toBeVisible();
     await page.screenshot({ path: test.info().outputPath(`${theme}-mobile-menu.png`) });
     await page.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'More', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'More', exact: true })).toBeFocused();
   }
 });

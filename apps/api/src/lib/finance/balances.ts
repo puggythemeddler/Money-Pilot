@@ -49,6 +49,7 @@ export interface KindTotals {
  * count here (joint-account activity is reported by the household overview). */
 export async function totalsByRange(
   userId: string,
+  currency: string,
   from?: Date,
   to?: Date,
 ): Promise<KindTotals> {
@@ -56,6 +57,7 @@ export async function totalsByRange(
     by: ["kind"],
     where: {
       userId,
+      currency,
       account: { householdId: null },
       deletedAt: null,
       ...((from || to) ? { transactionDate: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } } : {}),

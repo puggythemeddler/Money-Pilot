@@ -79,6 +79,7 @@ export function DebtsManager({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editing, setEditing] = useState<DebtItem | null>(null);
   const [editPrincipal, setEditPrincipal] = useState("");
+  const [editMinimum, setEditMinimum] = useState("");
   const [payTarget, setPayTarget] = useState<DebtItem | null>(null);
   const [payAccountId, setPayAccountId] = useState("");
   const [payAmount, setPayAmount] = useState("");
@@ -141,15 +142,13 @@ export function DebtsManager({
     setBusy(true);
     const payload: Record<string, unknown> = {
       principal: editPrincipal.trim(),
+      minimumPayment: editMinimum.trim() || null,
       interestMethod: editing.interestMethod ?? 'NONE', interestPeriod: editing.interestPeriod ?? 'ANNUAL',
       interestRate: editing.interestRate?.trim() || null, startDate: editing.startDate ?? null, termMonths: editing.termMonths ?? null,
     };
     if (editing.name.trim()) payload.name = editing.name.trim();
     if (editing.type) payload.type = editing.type;
     if (editing.institution?.trim()) payload.institution = editing.institution.trim();
-    if (editing.minimumPaymentMinor !== null && editing.minimumPaymentMinor > 0) {
-      payload.minimumPayment = String(fromMinorUnits(editing.minimumPaymentMinor, editing.currency));
-    }
     if (editing.dueDay !== null && editing.dueDay > 0) payload.dueDay = String(editing.dueDay);
     if (editing.categoryId) payload.categoryId = editing.categoryId;
     if (editing.notes?.trim()) payload.notes = editing.notes.trim();
@@ -332,14 +331,8 @@ export function DebtsManager({
               <Field label="Min. payment" htmlFor="dt-edit-minimum">
                 <Input
                   id="dt-edit-minimum"
-                  value={editing.minimumPaymentMinor !== null ? fromMinorUnits(editing.minimumPaymentMinor, editing.currency) : ""}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setEditing({
-                      ...editing,
-                      minimumPaymentMinor: value === "" ? null : parseMoneyToMinorUnits(value, editing.currency),
-                    });
-                  }}
+                  value={editMinimum}
+                  onChange={(e) => setEditMinimum(e.target.value)}
                   inputMode="decimal"
                 />
               </Field>
@@ -491,7 +484,7 @@ export function DebtsManager({
                             Pay
                           </Button>
                         ) : null}
-                        <Button variant="ghost" size="sm" onClick={() => { setPayTarget(null); setEditPrincipal(String(fromMinorUnits(d.principalMinor, d.currency))); setEditing(d); }}>
+                        <Button variant="ghost" size="sm" onClick={() => { setPayTarget(null); setEditPrincipal(String(fromMinorUnits(d.principalMinor, d.currency))); setEditMinimum(d.minimumPaymentMinor === null ? "" : String(fromMinorUnits(d.minimumPaymentMinor, d.currency))); setEditing(d); }}>
                           Edit
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => archive(d.id)} disabled={busyId !== null} loading={busyId === d.id}>

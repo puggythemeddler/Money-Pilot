@@ -5,7 +5,7 @@ test('interest preview, saved debt, payments, dashboard and reports use the same
   test.setTimeout(120000);
   await registerViaUI(page, 'Interest Tester');
   const account = await createAccountViaApi(page, { name: 'Repayments', openingBalance: '200000' });
-  const legacyResponse = await page.request.post('/api/debts', { data: { name: 'Existing loan', principal: '1000', interestRate: '12' } });
+  const legacyResponse = await page.request.post('/api/debts', { data: { name: 'Existing loan', principal: '1000', interestRate: '12', minimumPayment: '25' } });
   expect(legacyResponse.status()).toBe(201);
   expect((await page.request.post('/api/debts', { data: { name: 'Incomplete', principal: '1000', interestMethod: 'FLAT', interestRate: '12' } })).status()).toBe(400);
   await page.goto('/dashboard/debts');
@@ -52,10 +52,13 @@ test('interest preview, saved debt, payments, dashboard and reports use the same
   await page.locator('#dt-edit-interest-method').selectOption('FLAT');
   await page.locator('#dt-edit-interest-start').fill('2025-01-01');
   await page.locator('#dt-edit-interest-term').fill('6');
+  await page.locator('#dt-edit-minimum').fill('0.0.1');
+  await expect(page.locator('#dt-edit-minimum')).toHaveValue('0.0.1');
+  await page.locator('#dt-edit-minimum').fill('');
   await page.getByRole('button', { name: 'Save changes', exact: true }).click();
   await expect(page.locator('#dt-edit-name')).toHaveCount(0);
   debts = (await (await page.request.get('/api/debts')).json()).data.debts;
-  expect(debts.find((item: { name: string }) => item.name === 'Existing loan')).toMatchObject({ interestMethod: 'FLAT', totalRepayableMinor: 106000 });
+  expect(debts.find((item: { name: string }) => item.name === 'Existing loan')).toMatchObject({ interestMethod: 'FLAT', totalRepayableMinor: 106000, minimumPaymentMinor: null });
 });
 
 test("paying a debt records a real payment to the named creditor", async ({ page }) => {

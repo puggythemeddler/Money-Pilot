@@ -22,6 +22,11 @@ test("debt actions and payment forms stay usable on narrow screens", async ({ pa
   await page.screenshot({ path: test.info().outputPath("mobile-debts.png"), fullPage: true });
   await page.getByRole("button", { name: "Pay", exact: true }).click();
   await expect(page.locator("#dt-pay-amount")).toBeFocused();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#dt-pay-date')).toBeFocused();
+  expect(await page.locator('#dt-pay-date').evaluate((field) => field.getBoundingClientRect().bottom <= document.querySelector('nav[aria-label="Mobile navigation"]')!.getBoundingClientRect().top)).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.locator("#dt-edit-name")).toBeFocused();

@@ -97,6 +97,12 @@
   body {
     @apply bg-page text-heading;
   }
+  html {
+    scroll-padding-bottom: 6rem;
+  }
+  input, select, textarea, button, a {
+    scroll-margin-block: 1rem 6rem;
+  }
   ::selection {
     @apply bg-primary-600/25 text-primary-900 dark:text-primary-200;
   }

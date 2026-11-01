@@ -28,19 +28,20 @@ export async function dashboardSummary(userId: string, preferredCurrency: string
     incomeOverview(userId, preferredCurrency),
   ]);
   const accounts = allAccounts.filter((a) => !a.shared);
-  const availableMinor = accounts.reduce((sum, a) => sum + a.balanceMinor, 0);
+  const availableMinor = accounts.filter((account) => account.currency === preferredCurrency).reduce((sum, a) => sum + a.balanceMinor, 0);
 
   const now = new Date();
   const { from: monthStart, to: nextMonth } = periodRange(currentReportMonth(timezone, now));
 
   const [month, allTime, spending, recent] = await Promise.all([
-    totalsByRange(userId, monthStart, nextMonth),
-    totalsByRange(userId, undefined, undefined),
+    totalsByRange(userId, preferredCurrency, monthStart, nextMonth),
+    totalsByRange(userId, preferredCurrency),
     prisma.transaction.groupBy({
       by: ["categoryId"],
       where: {
         userId,
         kind: "EXPENSE",
+        currency: preferredCurrency,
         account: { householdId: null },
         deletedAt: null,
         transactionDate: { gte: monthStart, lt: nextMonth },
