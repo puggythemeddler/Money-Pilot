@@ -13,6 +13,7 @@ const realNav = [
   { href: "/dashboard/accounts", label: "Accounts", icon: Icons.wallet },
   { href: "/dashboard/transactions", label: "Transactions", icon: Icons.receipt },
   { href: "/dashboard/reports", label: "Reports", icon: Icons.target },
+  { href: "/dashboard/tax", label: "Tax preparation", icon: Icons.receipt },
   { href: "/dashboard/income", label: "Income", icon: Icons.income },
   { href: "/dashboard/transfers", label: "Transfers", icon: Icons.swap },
   { href: "/dashboard/household", label: "Household", icon: Icons.users },
@@ -24,16 +25,6 @@ const realNav = [
 ];
 
 const mobileNav = ["/dashboard", "/dashboard/accounts", "/dashboard/transactions", "/dashboard/debts"];
-
-const comingSoon = ["Calendar", "Imports"];
-
-function MobileNotice({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded-md border border-line px-1.5 py-0.5 text-[11px] font-medium text-faint">
-      {children}
-    </span>
-  );
-}
 
 export function Sidebar({ user }: { user: AuthUser }) {
   const pathname = usePathname();
@@ -55,10 +46,10 @@ export function Sidebar({ user }: { user: AuthUser }) {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 border-l-2 px-3 py-2 text-sm font-medium transition-colors ${
                   active
-                    ? "bg-primary-50 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300"
-                    : "text-body hover:bg-surface-2 hover:text-heading"
+                    ? "border-primary-700 bg-primary-50 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300"
+                    : "border-transparent text-body hover:bg-surface-2 hover:text-heading"
                 }`}
               >
                 <item.icon className="h-5 w-5" />
@@ -68,24 +59,6 @@ export function Sidebar({ user }: { user: AuthUser }) {
           })}
         </div>
 
-        <div>
-          <p className="px-3 pb-1.5 text-xs font-semibold uppercase tracking-wide text-faint">
-            Coming later
-          </p>
-          <div className="space-y-1">
-            {comingSoon.map((label) => (
-              <div
-                key={label}
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-faint"
-                aria-disabled="true"
-              >
-                <span className="inline-block h-5 w-5 rounded-md bg-surface-2" aria-hidden="true" />
-                <span className="flex-1">{label}</span>
-                <MobileNotice>soon</MobileNotice>
-              </div>
-            ))}
-          </div>
-        </div>
       </nav>
 
       <div className="border-t border-line px-3 py-3">

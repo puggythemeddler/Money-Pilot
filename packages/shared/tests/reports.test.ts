@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { currentReportMonth, reportMonths } from '../src/reports';
+import { currentReportDate, currentReportMonth, reportMonths } from '../src/reports';
 
 describe('report calendar periods', () => {
   it('includes six months in order across a year boundary', () => {
@@ -11,6 +11,7 @@ describe('report calendar periods', () => {
   it('defaults to the user timezone at a UTC month boundary', () => {
     const boundary = new Date('2026-10-31T22:00:00Z');
     expect(currentReportMonth('Africa/Nairobi', boundary)).toBe('2026-11');
+    expect(currentReportDate('Africa/Nairobi', boundary)).toBe('2026-11-01');
     expect(currentReportMonth('America/New_York', boundary)).toBe('2026-10');
     expect(currentReportMonth('invalid-zone', boundary)).toBe('2026-10');
   });

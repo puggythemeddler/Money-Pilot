@@ -29,7 +29,7 @@ export default defineConfig({
     command: "node scripts/e2e-server.mjs",
     url: "http://localhost:3105/api/health",
     // The first run on a clean clone also builds both the API and the web app.
-    timeout: 300_000,
+    timeout: 600_000,
     reuseExistingServer: !process.env.CI,
     stdout: "pipe",
     stderr: "pipe",

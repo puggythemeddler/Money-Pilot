@@ -716,7 +716,7 @@ finance.get("/dashboard", async (c) => {
   const req = c.req.raw;
   try {
     const context = await requireUser(req);
-    const summary = await dashboardSummary(context.user.id, context.user.preferredCurrency);
+    const summary = await dashboardSummary(context.user.id, context.user.preferredCurrency, context.user.timezone);
     return ok(summary);
   } catch (err) {
     return fail(err, requestId);

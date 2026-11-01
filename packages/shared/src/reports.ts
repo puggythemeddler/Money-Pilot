@@ -8,10 +8,14 @@ export interface FinanceReport {
 }
 
 export function currentReportMonth(timezone: string, now = new Date()): string {
+  return currentReportDate(timezone, now).slice(0, 7);
+}
+
+export function currentReportDate(timezone: string, now = new Date()): string {
   try {
-    const parts = new Intl.DateTimeFormat('en', { timeZone: timezone, year: 'numeric', month: '2-digit' }).formatToParts(now);
-    return `${parts.find((p) => p.type === 'year')!.value}-${parts.find((p) => p.type === 'month')!.value}`;
-  } catch { return now.toISOString().slice(0, 7); }
+    const parts = new Intl.DateTimeFormat('en', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
+    return `${parts.find((p) => p.type === 'year')!.value}-${parts.find((p) => p.type === 'month')!.value}-${parts.find((p) => p.type === 'day')!.value}`;
+  } catch { return now.toISOString().slice(0, 10); }
 }
 
 export function reportMonths(month: string): string[] {

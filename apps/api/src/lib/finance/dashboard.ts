@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/db";
-import { minorToNumber } from "@moneypilot/shared";
+import { currentReportDate, currentReportMonth, minorToNumber } from "@moneypilot/shared";
 import { listAccounts } from "./accounts";
 import { totalsByRange } from "./balances";
 import { debtOverview } from "./debts";
 import { incomeOverview } from "./recurringIncome";
 import { getMembership } from "./households";
-import { isoDate, toUtcMidnight } from "./dates";
+import { isoDate, periodRange } from "./dates";
 
 export interface CategorySpending {
   categoryId: string | null;
@@ -20,7 +20,7 @@ export interface CategorySpending {
  * personal-account activity is aggregated here; a small household card
  * points members at the household view for shared finances.
  */
-export async function dashboardSummary(userId: string, preferredCurrency: string) {
+export async function dashboardSummary(userId: string, preferredCurrency: string, timezone = 'UTC') {
   const [allAccounts, membership, debt, income] = await Promise.all([
     listAccounts(userId),
     getMembership(userId),
@@ -31,8 +31,7 @@ export async function dashboardSummary(userId: string, preferredCurrency: string
   const availableMinor = accounts.reduce((sum, a) => sum + a.balanceMinor, 0);
 
   const now = new Date();
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  const { from: monthStart, to: nextMonth } = periodRange(currentReportMonth(timezone, now));
 
   const [month, allTime, spending, recent] = await Promise.all([
     totalsByRange(userId, monthStart, nextMonth),
@@ -83,7 +82,7 @@ export async function dashboardSummary(userId: string, preferredCurrency: string
     availableMinor,
     month: {
       from: isoDate(monthStart),
-      to: isoDate(toUtcMidnight(new Date())),
+      to: currentReportDate(timezone, now),
       incomeMinor: month.incomeMinor,
       expenseMinor: month.expenseMinor,
       netMinor: month.netMinor,

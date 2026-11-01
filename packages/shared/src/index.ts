@@ -4,4 +4,5 @@ export * from "./finance";
 export * from "./errors";
 export * from "./types";
 export * from "./reports";
+export * from "./kenya-tax";
 export * from "./schemas";

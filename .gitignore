@@ -47,3 +47,6 @@ apps/mobile/web-build/
 *.p12
 *.key
 *.mobileprovision
+# Generated browser-side PDF/OCR workers and language data.
+apps/web/public/document-tools/
+output/playwright/

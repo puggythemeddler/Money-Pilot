@@ -24,7 +24,7 @@ export function MoneyPilotLogo({ className }: { className?: string }) {
     <span className={`inline-flex items-center gap-2 ${className ?? ""}`}>
       <LogoMark className="h-7 w-7" />
       <span className="text-lg font-semibold tracking-tight text-heading">
-        Money<span className="text-primary-600">Pilot</span>
+        Money<span className="text-primary-700 dark:text-primary-400">Pilot</span>
       </span>
     </span>
   );

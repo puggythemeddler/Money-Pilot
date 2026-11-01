@@ -4,17 +4,20 @@
   "private": true,
   "author": "puggythemeddler",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "node scripts/prepare-document-assets.mjs && next dev",
+    "build": "node scripts/prepare-document-assets.mjs && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@moneypilot/shared": "*",
+    "@tesseract.js-data/eng": "^1.0.0",
     "next": "^15.5.28",
+    "pdfjs-dist": "^6.4.299",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

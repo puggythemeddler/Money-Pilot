@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { currentReportDate } from '@moneypilot/shared';
 
 export const E2E_PASSWORD = "Sup3r-Secure!";
 
@@ -57,7 +58,5 @@ export async function createAccountViaApi(
 
 /** Local ISO date (yyyy-mm-dd) so seeded records always land in the current month. */
 export function isoDay(offsetDays = 0): string {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return d.toISOString().slice(0, 10);
+  return currentReportDate('Africa/Nairobi', new Date(Date.now() + offsetDays * 86400000));
 }
